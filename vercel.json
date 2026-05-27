@@ -4,12 +4,20 @@
     {
       "src": "backend/main.py",
       "use": "@vercel/python"
+    },
+    {
+      "src": "AgencyOrders.html",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
       "dest": "backend/main.py"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "AgencyOrders.html"
     }
   ]
 }
