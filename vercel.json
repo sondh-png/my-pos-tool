@@ -4,6 +4,10 @@
     {
       "src": "backend/main.py",
       "use": "@vercel/python"
+    },
+    {
+      "src": "*.html",
+      "use": "@vercel/static"
     }
   ],
   "rewrites": [
