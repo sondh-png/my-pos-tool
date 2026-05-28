@@ -336,10 +336,10 @@ async def get_tracking_logs(
     order_code: str,
     seller_id: Optional[str] = None,
 ) -> dict:
-    """Lấy lịch sử tracking đơn hàng."""
+    """Lấy lịch sử tracking đơn hàng (GHN API id=47)."""
     return await _call(
         token, shop_id,
-        path="/v2/shipping-order/detail",
+        path="/v2/shipping-order/tracking",   # FIX: /detail → /tracking
         method="POST",
         body={"order_code": order_code},
         seller_id=seller_id,
@@ -390,7 +390,7 @@ LEARN_ENDPOINTS = [
     {"name": "Danh sách Quận/Huyện", "url": f"{GHN_BASE}/master-data/district",                 "method": "GET",  "description": "Quận/huyện theo province_id",      "required_fields": ["province_id"]},
     {"name": "Danh sách Phường/Xã",  "url": f"{GHN_BASE}/master-data/ward",                     "method": "GET",  "description": "Phường/xã theo district_id",        "required_fields": ["district_id"]},
     {"name": "Thông tin shop",        "url": f"{GHN_BASE_V2}/shop/all",                          "method": "GET",  "description": "Danh sách shop thuộc token",        "required_fields": []},
-    {"name": "Tracking đơn hàng",    "url": f"{GHN_BASE_V2}/shipping-order/detail",             "method": "POST", "description": "Lịch sử tracking đơn hàng",        "required_fields": ["order_code"]},
+    {"name": "Tracking đơn hàng",    "url": f"{GHN_BASE_V2}/shipping-order/tracking",           "method": "POST", "description": "Lịch sử tracking đơn hàng",        "required_fields": ["order_code"]},
 ]
 
 
