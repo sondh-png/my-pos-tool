@@ -1,3 +1,6 @@
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 """
 main.py – FastAPI Multi-Seller POS + GHN Real API Backend
 Chạy: python -m uvicorn main:app --reload --port 8000
@@ -20,6 +23,7 @@ from ghn_client import (
     send_otp_employee, add_employee_by_otp,
 )
 from analyzer import analyze_error, chat_response
+import traceback
 
 # ── GHN Master Token của M (dùng để nhận affiliate) ────────────────────
 GHN_MASTER_TOKEN = "354e5736-46b5-11ec-bde8-6690e1946f41"
@@ -712,24 +716,29 @@ async def api_wards_public(token: str, district_id: int):
 @app.get("/api/knowledge")
 async def api_get_knowledge(page: int = 1, limit: int = 20, source: str = "all"):
     offset = (page - 1) * limit
+    def _c(row):
+        try: return row["c"]
+        except Exception: return row[0]
+
     with get_conn() as conn:
         if source != "all":
             rows  = conn.execute("SELECT * FROM error_knowledge WHERE source=? ORDER BY hit_count DESC LIMIT ? OFFSET ?", (source, limit, offset)).fetchall()
-            total = conn.execute("SELECT COUNT(*) as c FROM error_knowledge WHERE source=?", (source,)).fetchone()["c"]
+            total = _c(conn.execute("SELECT COUNT(*) as c FROM error_knowledge WHERE source=?", (source,)).fetchone())
         else:
             rows  = conn.execute("SELECT * FROM error_knowledge ORDER BY hit_count DESC LIMIT ? OFFSET ?", (limit, offset)).fetchall()
-            total = conn.execute("SELECT COUNT(*) as c FROM error_knowledge").fetchone()["c"]
+            total = _c(conn.execute("SELECT COUNT(*) as c FROM error_knowledge").fetchone())
     return {"total": total, "page": page, "limit": limit, "items": [dict(r) for r in rows]}
 
 
 @app.post("/api/knowledge")
 async def api_add_knowledge(req: KnowledgeAddRequest):
     with get_conn() as conn:
-        cur = conn.execute("""
+        conn.execute("""
             INSERT INTO error_knowledge (error_msg, endpoint, root_cause, solution, code_wrong, code_right, source)
-            VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (req.error_msg, req.endpoint, req.root_cause, req.solution, req.code_wrong, req.code_right, req.source))
-    return {"success": True, "id": cur.fetchone()[0]}
+        new_id = conn.execute("SELECT lastval()").fetchone()[0]
+    return {"success": True, "id": new_id}
 
 
 @app.put("/api/knowledge/{kb_id}")
@@ -778,18 +787,29 @@ async def api_chat_history(limit: int = 50):
 
 @app.get("/api/stats")
 async def api_stats():
+    def _count(conn, query, params=None):
+        row = conn.execute(query, params or []).fetchone()
+        if row is None:
+            return 0
+        # psycopg2 DictCursor → truy cập bằng tên cột
+        try:
+            return row["c"]
+        except Exception:
+            return row[0]
+
     with get_conn() as conn:
-        return {
-            "sellers_total":      conn.execute("SELECT COUNT(*) as c FROM sellers").fetchone()["c"],
-            "sellers_active":     conn.execute("SELECT COUNT(*) as c FROM sellers WHERE status='active'").fetchone()["c"],
-            "orders_total":       conn.execute("SELECT COUNT(*) as c FROM orders").fetchone()["c"],
-            "orders_pending":     conn.execute("SELECT COUNT(*) as c FROM orders WHERE status='pending'").fetchone()["c"],
-            "orders_delivered":   conn.execute("SELECT COUNT(*) as c FROM orders WHERE status='delivered'").fetchone()["c"],
-            "endpoints_learned":  conn.execute("SELECT COUNT(*) as c FROM ghn_endpoints").fetchone()["c"],
-            "errors_known":       conn.execute("SELECT COUNT(*) as c FROM error_knowledge WHERE root_cause != 'Chưa phân tích'").fetchone()["c"],
-            "total_api_calls":    conn.execute("SELECT COUNT(*) as c FROM api_logs").fetchone()["c"],
-            "failed_api_calls":   conn.execute("SELECT COUNT(*) as c FROM api_logs WHERE status_code != 200").fetchone()["c"],
+        stats = {
+            "sellers_total":     _count(conn, "SELECT COUNT(*) as c FROM sellers"),
+            "sellers_active":    _count(conn, "SELECT COUNT(*) as c FROM sellers WHERE status='active'"),
+            "orders_total":      _count(conn, "SELECT COUNT(*) as c FROM orders"),
+            "orders_pending":    _count(conn, "SELECT COUNT(*) as c FROM orders WHERE status='pending'"),
+            "orders_delivered":  _count(conn, "SELECT COUNT(*) as c FROM orders WHERE status='delivered'"),
+            "endpoints_learned": _count(conn, "SELECT COUNT(*) as c FROM ghn_endpoints"),
+            "errors_known":      _count(conn, "SELECT COUNT(*) as c FROM error_knowledge WHERE root_cause != 'Chưa phân tích'"),
+            "total_api_calls":   _count(conn, "SELECT COUNT(*) as c FROM api_logs"),
+            "failed_api_calls":  _count(conn, "SELECT COUNT(*) as c FROM api_logs WHERE status_code != 200"),
         }
+    return stats
 
 
 # ── Internal helpers ───────────────────────────────────────────────
@@ -834,3 +854,26 @@ def _save_chat(user_msg: str, assistant_msg: str):
     with get_conn() as conn:
         conn.execute("INSERT INTO chat_history (role, content) VALUES ('user', ?)", (user_msg[:2000],))
         conn.execute("INSERT INTO chat_history (role, content) VALUES ('assistant', ?)", (assistant_msg[:4000],))
+
+
+# ── DEBUG ENDPOINT (xoá sau khi fix xong) ──────────────────────────
+@app.get("/api/debug")
+async def api_debug():
+    import traceback as tb
+    result = {}
+    try:
+        from database import DB_URL
+        result["db_url_set"] = bool(DB_URL)
+        result["db_url_prefix"] = (DB_URL[:40] + "...") if DB_URL else "MISSING"
+    except Exception:
+        result["db_import_error"] = tb.format_exc()
+        return result
+    try:
+        with get_conn() as conn:
+            row = conn.execute("SELECT COUNT(*) as c FROM sellers").fetchone()
+            result["sellers_count"] = row[0] if row else "no row"
+    except Exception:
+        result["db_query_error"] = tb.format_exc()
+        return result
+    result["status"] = "OK"
+    return result
