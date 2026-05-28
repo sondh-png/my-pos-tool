@@ -9,7 +9,7 @@ from psycopg2.extras import DictCursor
 DB_URL = os.environ.get("DATABASE_URL")
 if not DB_URL:
     # Nếu chưa có biến môi trường, sử dụng chuỗi kết nối hardcode từ user cho tiện
-    DB_URL = "postgresql://postgres:Daubep%40232@db.wbleerebkrsnxfgqodao.supabase.co:5432/postgres"
+    DB_URL = "postgresql://neondb_owner:npg_IXc2GdilSMx8@ep-frosty-cake-ap5s8ue8-pooler.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require"
 
 class DBConnWrapper:
     def __init__(self, conn):
