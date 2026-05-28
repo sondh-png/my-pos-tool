@@ -1,20 +1,50 @@
 """
-database.py – SQLite setup cho GHN POS Multi-Seller
+database.py – PostgreSQL (Supabase) setup cho GHN POS Multi-Seller
 """
-import sqlite3
 import os
-import secrets
+import psycopg2
+from psycopg2.extras import DictCursor
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "knowledge.db")
+# Lấy từ biến môi trường trên Vercel / Local
+DB_URL = os.environ.get("DATABASE_URL")
+if not DB_URL:
+    # Nếu chưa có biến môi trường, sử dụng chuỗi kết nối hardcode từ user cho tiện
+    DB_URL = "postgresql://postgres:Daubep%40232@db.wbleerebkrsnxfgqodao.supabase.co:5432/postgres"
 
+class DBConnWrapper:
+    def __init__(self, conn):
+        self.conn = conn
 
-def get_conn() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA foreign_keys=ON")
-    return conn
+    def execute(self, query, vars=None):
+        # Convert SQLite ? parameters to PostgreSQL %s parameters
+        query = query.replace("?", "%s")
+        cur = self.conn.cursor(cursor_factory=DictCursor)
+        cur.execute(query, vars)
+        return cur
 
+    def executescript(self, script):
+        with self.conn.cursor() as cur:
+            cur.execute(script)
+
+    def commit(self):
+        self.conn.commit()
+        
+    def rollback(self):
+        self.conn.rollback()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is None:
+            self.conn.commit()
+        else:
+            self.conn.rollback()
+        self.conn.close()
+
+def get_conn():
+    conn = psycopg2.connect(DB_URL)
+    return DBConnWrapper(conn)
 
 def init_db():
     with get_conn() as conn:
@@ -23,34 +53,34 @@ def init_db():
         -- MULTI-SELLER TABLES
         -- ══════════════════════════════════════════
 
-        -- Bảng nhà bán hàng (Sellers)
         CREATE TABLE IF NOT EXISTS sellers (
-            id          TEXT PRIMARY KEY,           -- e.g. SEL001
-            name        TEXT NOT NULL,              -- Tên shop
-            owner_name  TEXT NOT NULL,              -- Tên chủ shop
+            id          TEXT PRIMARY KEY,
+            name        TEXT NOT NULL,
+            owner_name  TEXT NOT NULL,
             phone       TEXT NOT NULL,
             email       TEXT,
-            login_key   TEXT NOT NULL UNIQUE,       -- Key đăng nhập qua link
-            ghn_token   TEXT,                       -- GHN API Token (được mã hoá bởi app)
-            ghn_shop_id INTEGER DEFAULT 0,          -- GHN Shop ID
-            status      TEXT DEFAULT 'active',      -- active / inactive
-            created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+            login_key   TEXT NOT NULL UNIQUE,
+            ghn_token   TEXT,
+            ghn_shop_id INTEGER DEFAULT 0,
+            status      TEXT DEFAULT 'active',
+            created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            ghn_phone   TEXT,
+            ghn_connected INTEGER DEFAULT 0
         );
 
-        -- Bảng đơn hàng (Orders) – lưu đơn thật gửi GHN
         CREATE TABLE IF NOT EXISTS orders (
-            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            id              SERIAL PRIMARY KEY,
             seller_id       TEXT NOT NULL,
-            order_code      TEXT UNIQUE,            -- Mã vận đơn GHN (null nếu chưa gửi)
-            client_code     TEXT,                   -- Mã đơn nội bộ
-            status          TEXT DEFAULT 'pending', -- pending/pickup/in_transit/returning/delivered/cancelled
+            order_code      TEXT UNIQUE,
+            client_code     TEXT,
+            status          TEXT DEFAULT 'pending',
             receiver_name   TEXT,
             receiver_phone  TEXT,
             receiver_address TEXT,
             to_province_id  INTEGER,
             to_district_id  INTEGER,
             to_ward_code    TEXT,
-            weight          INTEGER DEFAULT 200,    -- grams
+            weight          INTEGER DEFAULT 200,
             length          INTEGER DEFAULT 10,
             width           INTEGER DEFAULT 10,
             height          INTEGER DEFAULT 10,
@@ -58,30 +88,29 @@ def init_db():
             insurance_value INTEGER DEFAULT 0,
             shipping_fee    INTEGER DEFAULT 0,
             service_id      INTEGER,
-            payment_type    INTEGER DEFAULT 2,      -- 1=shop trả, 2=khách trả
+            payment_type    INTEGER DEFAULT 2,
             note            TEXT,
-            ghn_response    TEXT,                   -- JSON raw từ GHN
-            print_token     TEXT,                   -- Token in tem GHN
-            created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+            ghn_response    TEXT,
+            print_token     TEXT,
+            created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
-        -- Bảng tracking logs (webhook / manual sync)
         CREATE TABLE IF NOT EXISTS tracking_logs (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            id          SERIAL PRIMARY KEY,
             order_code  TEXT NOT NULL,
             status      TEXT,
             description TEXT,
             location    TEXT,
-            logged_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+            logged_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
         -- ══════════════════════════════════════════
-        -- AI ASSISTANT TABLES (giữ nguyên)
+        -- AI ASSISTANT TABLES
         -- ══════════════════════════════════════════
 
         CREATE TABLE IF NOT EXISTS ghn_endpoints (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            id          SERIAL PRIMARY KEY,
             name        TEXT NOT NULL,
             url         TEXT NOT NULL,
             method      TEXT NOT NULL DEFAULT 'POST',
@@ -90,11 +119,11 @@ def init_db():
             sample_request  TEXT,
             sample_response TEXT,
             error_codes     TEXT,
-            learned_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+            learned_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
         CREATE TABLE IF NOT EXISTS error_knowledge (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            id          SERIAL PRIMARY KEY,
             error_msg   TEXT NOT NULL,
             endpoint    TEXT,
             root_cause  TEXT,
@@ -103,12 +132,12 @@ def init_db():
             code_right  TEXT,
             source      TEXT DEFAULT 'manual',
             hit_count   INTEGER DEFAULT 0,
-            created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+            created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
         CREATE TABLE IF NOT EXISTS api_logs (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            id          SERIAL PRIMARY KEY,
             seller_id   TEXT,
             endpoint    TEXT NOT NULL,
             request_body TEXT,
@@ -116,34 +145,18 @@ def init_db():
             response    TEXT,
             error_msg   TEXT,
             duration_ms INTEGER,
-            logged_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+            logged_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
         CREATE TABLE IF NOT EXISTS chat_history (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            id          SERIAL PRIMARY KEY,
             role        TEXT NOT NULL,
             content     TEXT NOT NULL,
-            created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+            created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """)
         
-        # Migration: Add seller_id to api_logs if it doesn't exist
-        try:
-            conn.execute("ALTER TABLE api_logs ADD COLUMN seller_id TEXT")
-        except sqlite3.OperationalError:
-            pass # Column already exists
-
-        # Migration: Add GHN Affiliate columns to sellers
-        for col_def in [
-            "ALTER TABLE sellers ADD COLUMN ghn_phone TEXT",          # SĐT đăng nhập GHN của seller
-            "ALTER TABLE sellers ADD COLUMN ghn_connected INTEGER DEFAULT 0",  # 1 = đã kết nối affiliate
-        ]:
-            try:
-                conn.execute(col_def)
-            except sqlite3.OperationalError:
-                pass
-
-    print(f"[DB] Initialized at {DB_PATH}")
+    print(f"[DB] Initialized Postgres DB")
 
 
 def seed_initial_knowledge():
@@ -222,7 +235,7 @@ def seed_initial_knowledge():
         for e in initial_errors:
             conn.execute("""
                 INSERT INTO error_knowledge (error_msg, endpoint, root_cause, solution, code_wrong, code_right, source)
-                VALUES (:error_msg, :endpoint, :root_cause, :solution, :code_wrong, :code_right, :source)
+                VALUES (%(error_msg)s, %(endpoint)s, %(root_cause)s, %(solution)s, %(code_wrong)s, %(code_right)s, %(source)s)
             """, e)
 
     print("[DB] Seeded initial GHN knowledge")
@@ -273,8 +286,9 @@ def seed_demo_sellers():
 
         for s in demos:
             conn.execute("""
-                INSERT OR IGNORE INTO sellers (id, name, owner_name, phone, email, login_key, ghn_token, ghn_shop_id, status)
-                VALUES (:id, :name, :owner_name, :phone, :email, :login_key, :ghn_token, :ghn_shop_id, :status)
+                INSERT INTO sellers (id, name, owner_name, phone, email, login_key, ghn_token, ghn_shop_id, status)
+                VALUES (%(id)s, %(name)s, %(owner_name)s, %(phone)s, %(email)s, %(login_key)s, %(ghn_token)s, %(ghn_shop_id)s, %(status)s)
+                ON CONFLICT (id) DO NOTHING
             """, s)
 
     print("[DB] Seeded demo sellers")

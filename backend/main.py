@@ -727,9 +727,9 @@ async def api_add_knowledge(req: KnowledgeAddRequest):
     with get_conn() as conn:
         cur = conn.execute("""
             INSERT INTO error_knowledge (error_msg, endpoint, root_cause, solution, code_wrong, code_right, source)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id
         """, (req.error_msg, req.endpoint, req.root_cause, req.solution, req.code_wrong, req.code_right, req.source))
-    return {"success": True, "id": cur.lastrowid}
+    return {"success": True, "id": cur.fetchone()[0]}
 
 
 @app.put("/api/knowledge/{kb_id}")
