@@ -270,6 +270,21 @@ async def list_sellers():
     return {"sellers": [dict(r) for r in rows]}
 
 
+@app.get("/api/sellers/init-son")
+async def init_seller_son():
+    """Tạo seller son nếu chưa có – gọi 1 lần để setup."""
+    with get_conn() as conn:
+        existing = conn.execute("SELECT id FROM sellers WHERE phone=?", ("0356755871",)).fetchone()
+        if existing:
+            return {"message": "Seller son đã tồn tại", "id": dict(existing)["id"]}
+        conn.execute("""
+            INSERT INTO sellers (id, name, owner_name, phone, email, login_key, ghn_token, ghn_shop_id, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')
+        """, ("SEL_SON", "Shop của Son", "Son", "0356755871", "", "son123", "", 5494011))
+    return {"success": True, "id": "SEL_SON", "login_key": "son123",
+            "message": "Tạo xong! Login bằng SĐT 0356755871 / mật khẩu 123456"}
+
+
 @app.post("/api/sellers", status_code=201)
 async def create_seller(req: SellerCreate):
     """Tạo nhà bán hàng mới."""
@@ -349,11 +364,21 @@ async def api_send_otp(req: SendOTPRequest):
     API GHN id=87
     """
     # Lưu shop_id + phone trước để trạng thái không bị mất
+    # Nếu seller chưa có trong DB (Vercel DB mới) → tự tạo
     with get_conn() as conn:
-        conn.execute(
-            "UPDATE sellers SET ghn_shop_id=?, ghn_phone=?, ghn_connected=0 WHERE id=?",
-            (req.ghn_shop_id, req.ghn_phone, req.seller_id)
-        )
+        existing = conn.execute("SELECT id FROM sellers WHERE id=?", (req.seller_id,)).fetchone()
+        if not existing:
+            import secrets as _s
+            conn.execute("""
+                INSERT INTO sellers (id, name, owner_name, phone, login_key, ghn_shop_id, ghn_phone, ghn_connected, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'active')
+            """, (req.seller_id, req.seller_id, req.seller_id, req.ghn_phone,
+                  _s.token_urlsafe(8), req.ghn_shop_id, req.ghn_phone))
+        else:
+            conn.execute(
+                "UPDATE sellers SET ghn_shop_id=?, ghn_phone=?, ghn_connected=0 WHERE id=?",
+                (req.ghn_shop_id, req.ghn_phone, req.seller_id)
+            )
     result = await send_otp_employee(GHN_MASTER_TOKEN, req.ghn_phone)
     if result["ok"]:
         return {"success": True, "message": "OTP đã gửi về số " + req.ghn_phone}
