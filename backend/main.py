@@ -658,10 +658,47 @@ async def api_print_label(req: PrintLabelRequest):
 
 @app.post("/api/orders/tracking")
 async def api_tracking(req: TrackingRequest):
-    """Lấy lịch sử tracking đơn hàng."""
+    """Lấy lịch sử tracking đơn hàng (GHN API id=47)."""
     token, shop_id = _get_seller_creds(req.seller_id)
     result = await get_tracking_logs(token, shop_id, req.order_code, seller_id=req.seller_id)
-    return result
+
+    if not result["ok"]:
+        raise HTTPException(400, result["data"].get("message") or "Không thể lấy tracking")
+
+    logs = result["data"].get("data", []) or []
+
+    _status_map = {
+        "ready_to_pick": "pickup", "picking": "pickup",
+        "picked": "pickup", "storing": "pickup",
+        "delivering": "in_transit", "delivery_fail": "in_transit",
+        "waiting_to_return": "returning", "return": "returning",
+        "return_transporting": "returning", "returned": "returning",
+        "delivered": "delivered", "cancel": "cancelled",
+    }
+
+    with get_conn() as conn:
+        for log in logs:
+            conn.execute("""
+                INSERT OR IGNORE INTO tracking_logs (order_code, status, description, created_at)
+                VALUES (?, ?, ?, ?)
+            """, (
+                req.order_code,
+                log.get("Status") or log.get("status", ""),
+                log.get("Description") or log.get("description", ""),
+                log.get("UpdatedDate") or log.get("updated_date", ""),
+            ))
+
+        # Cập nhật status mới nhất trong bảng orders
+        if logs:
+            latest_status = logs[-1].get("Status") or logs[-1].get("status", "")
+            db_status = _status_map.get(latest_status, "")
+            if db_status:
+                conn.execute(
+                    "UPDATE orders SET status=?, updated_at=CURRENT_TIMESTAMP WHERE order_code=?",
+                    (db_status, req.order_code)
+                )
+
+    return {"success": True, "order_code": req.order_code, "logs": logs}
 
 
 # ══════════════════════════════════════════════════════════════════
