@@ -1,3 +1,6 @@
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 """
 main.py – FastAPI Multi-Seller POS + GHN Real API Backend
 Chạy: python -m uvicorn main:app --reload --port 8000
@@ -20,6 +23,7 @@ from ghn_client import (
     send_otp_employee, add_employee_by_otp,
 )
 from analyzer import analyze_error, chat_response
+import traceback
 
 # ── GHN Master Token của M (dùng để nhận affiliate) ────────────────────
 GHN_MASTER_TOKEN = "354e5736-46b5-11ec-bde8-6690e1946f41"
@@ -37,13 +41,27 @@ app.add_middleware(
 
 FRONTEND_PATH = os.path.join(os.path.dirname(__file__), "..", "AgencyOrders.html")
 
+# ── Lazy init cho Vercel Serverless (mỗi cold start đều chạy) ────
+_db_initialized = False
+
+@app.middleware("http")
+async def ensure_db_initialized(request, call_next):
+    global _db_initialized
+    if not _db_initialized:
+        try:
+            init_db()
+            seed_initial_knowledge()
+            seed_demo_sellers()
+            await learn_endpoints()
+            _db_initialized = True
+            print("✅ DB initialized")
+        except Exception as e:
+            print(f"⚠️ DB init warning: {e}")
+    return await call_next(request)
+
 @app.on_event("startup")
 async def startup():
-    init_db()
-    seed_initial_knowledge()
-    seed_demo_sellers()
-    await learn_endpoints()
-    print("✅ POS Backend started at http://localhost:8000")
+    print("✅ POS Backend started")
 
 
 # ── Serve Frontend ─────────────────────────────────────────────────
@@ -184,6 +202,7 @@ class VerifyOTPRequest(BaseModel):
     seller_id: str
     ghn_phone: str
     otp: str
+    ghn_shop_id: Optional[int] = None  # fallback nếu DB chưa có
 
 class GhnConnectionStatusRequest(BaseModel):
     seller_id: str
@@ -251,6 +270,33 @@ async def list_sellers():
     return {"sellers": [dict(r) for r in rows]}
 
 
+@app.get("/api/sellers/init-son")
+async def init_seller_son():
+    """Tạo seller son nếu chưa có – gọi 1 lần để setup."""
+    with get_conn() as conn:
+        existing = conn.execute("SELECT id FROM sellers WHERE phone=?", ("0356755871",)).fetchone()
+        if existing:
+            return {"message": "Seller son đã tồn tại", "id": dict(existing)["id"]}
+        conn.execute("""
+            INSERT INTO sellers (id, name, owner_name, phone, email, login_key, ghn_token, ghn_shop_id, ghn_phone, ghn_connected, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'active')
+        """, ("SEL_SON", "Shop của Son", "Son", "0356755871", "", "son123", 
+              GHN_MASTER_TOKEN, 5494011, "0986355512"))
+    return {"success": True, "id": "SEL_SON", "login_key": "son123",
+            "message": "Tạo xong! Login bằng SĐT 0356755871 / mật khẩu 123456"}
+
+
+@app.get("/api/sellers/update-son")
+async def update_seller_son():
+    """Update ghn_token + shop_id + ghn_phone cho seller son."""
+    with get_conn() as conn:
+        conn.execute("""
+            UPDATE sellers SET ghn_token=?, ghn_shop_id=?, ghn_phone=?, ghn_connected=1
+            WHERE phone=? OR id=?
+        """, (GHN_MASTER_TOKEN, 5494011, "0986355512", "0356755871", "SEL_SON"))
+    return {"success": True, "message": "Đã update seller son với GHN token + shop_id 5494011"}
+
+
 @app.post("/api/sellers", status_code=201)
 async def create_seller(req: SellerCreate):
     """Tạo nhà bán hàng mới."""
@@ -314,7 +360,8 @@ async def api_ghn_connection_status(seller_id: str):
             (seller_id,)
         ).fetchone()
     if not row:
-        raise HTTPException(404, "Seller không tồn tại")
+        # Seller chưa có trong DB (Vercel DB trống) → trả về default thay vì 404
+        return {"ghn_shop_id": 0, "ghn_phone": "", "ghn_connected": False}
     return {
         "ghn_shop_id": row["ghn_shop_id"] or 0,
         "ghn_phone": row["ghn_phone"] or "",
@@ -329,11 +376,21 @@ async def api_send_otp(req: SendOTPRequest):
     API GHN id=87
     """
     # Lưu shop_id + phone trước để trạng thái không bị mất
+    # Nếu seller chưa có trong DB (Vercel DB mới) → tự tạo
     with get_conn() as conn:
-        conn.execute(
-            "UPDATE sellers SET ghn_shop_id=?, ghn_phone=?, ghn_connected=0 WHERE id=?",
-            (req.ghn_shop_id, req.ghn_phone, req.seller_id)
-        )
+        existing = conn.execute("SELECT id FROM sellers WHERE id=?", (req.seller_id,)).fetchone()
+        if not existing:
+            import secrets as _s
+            conn.execute("""
+                INSERT INTO sellers (id, name, owner_name, phone, login_key, ghn_shop_id, ghn_phone, ghn_connected, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'active')
+            """, (req.seller_id, req.seller_id, req.seller_id, req.ghn_phone,
+                  _s.token_urlsafe(8), req.ghn_shop_id, req.ghn_phone))
+        else:
+            conn.execute(
+                "UPDATE sellers SET ghn_shop_id=?, ghn_phone=?, ghn_connected=0 WHERE id=?",
+                (req.ghn_shop_id, req.ghn_phone, req.seller_id)
+            )
     result = await send_otp_employee(GHN_MASTER_TOKEN, req.ghn_phone)
     if result["ok"]:
         return {"success": True, "message": "OTP đã gửi về số " + req.ghn_phone}
@@ -349,13 +406,16 @@ async def api_verify_otp(req: VerifyOTPRequest):
     API GHN id=89: /v2/shop/affiliateCreateWithShop
     Body cần: phone, otp, shop_id (lấy từ DB)
     """
-    # Lấy shop_id đã lưu từ bước send-otp
+    # Lấy shop_id từ DB (đã lưu ở bước send-otp)
     with get_conn() as conn:
         row = conn.execute("SELECT ghn_shop_id FROM sellers WHERE id=?", (req.seller_id,)).fetchone()
-    if not row or not row["ghn_shop_id"]:
-        raise HTTPException(422, "Không tìm thấy GHN Shop ID. Vui lòng quay lại bước 1.")
 
-    shop_id = row["ghn_shop_id"]
+    if row and row["ghn_shop_id"]:
+        shop_id = row["ghn_shop_id"]
+    elif hasattr(req, "ghn_shop_id") and req.ghn_shop_id:
+        shop_id = req.ghn_shop_id
+    else:
+        raise HTTPException(422, "Không tìm thấy GHN Shop ID. Vui lòng quay lại bước 1.")
     result = await add_employee_by_otp(GHN_MASTER_TOKEN, req.ghn_phone, req.otp, shop_id=shop_id)
     if result["ok"]:
         with get_conn() as conn:
@@ -378,7 +438,8 @@ def _get_location_token(seller_id: str):
     with get_conn() as conn:
         row = conn.execute("SELECT ghn_token FROM sellers WHERE ghn_token IS NOT NULL AND ghn_token != '' LIMIT 1").fetchone()
         if row: return row["ghn_token"]
-    raise HTTPException(400, "Hệ thống chưa có GHN Token nào để lấy địa chỉ")
+    # Fallback về GHN_MASTER_TOKEN để load địa chỉ
+    return GHN_MASTER_TOKEN
 
 @app.get("/api/ghn/provinces")
 async def api_provinces(seller_id: str):
@@ -850,3 +911,26 @@ def _save_chat(user_msg: str, assistant_msg: str):
     with get_conn() as conn:
         conn.execute("INSERT INTO chat_history (role, content) VALUES ('user', ?)", (user_msg[:2000],))
         conn.execute("INSERT INTO chat_history (role, content) VALUES ('assistant', ?)", (assistant_msg[:4000],))
+
+
+# ── DEBUG ENDPOINT (xoá sau khi fix xong) ──────────────────────────
+@app.get("/api/debug")
+async def api_debug():
+    import traceback as tb
+    result = {}
+    try:
+        from database import DB_URL
+        result["db_url_set"] = bool(DB_URL)
+        result["db_url_prefix"] = (DB_URL[:40] + "...") if DB_URL else "MISSING"
+    except Exception:
+        result["db_import_error"] = tb.format_exc()
+        return result
+    try:
+        with get_conn() as conn:
+            row = conn.execute("SELECT COUNT(*) as c FROM sellers").fetchone()
+            result["sellers_count"] = row[0] if row else "no row"
+    except Exception:
+        result["db_query_error"] = tb.format_exc()
+        return result
+    result["status"] = "OK"
+    return result
