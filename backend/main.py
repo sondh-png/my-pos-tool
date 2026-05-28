@@ -278,11 +278,23 @@ async def init_seller_son():
         if existing:
             return {"message": "Seller son đã tồn tại", "id": dict(existing)["id"]}
         conn.execute("""
-            INSERT INTO sellers (id, name, owner_name, phone, email, login_key, ghn_token, ghn_shop_id, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')
-        """, ("SEL_SON", "Shop của Son", "Son", "0356755871", "", "son123", "", 5494011))
+            INSERT INTO sellers (id, name, owner_name, phone, email, login_key, ghn_token, ghn_shop_id, ghn_phone, ghn_connected, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'active')
+        """, ("SEL_SON", "Shop của Son", "Son", "0356755871", "", "son123", 
+              GHN_MASTER_TOKEN, 5494011, "0986355512"))
     return {"success": True, "id": "SEL_SON", "login_key": "son123",
             "message": "Tạo xong! Login bằng SĐT 0356755871 / mật khẩu 123456"}
+
+
+@app.get("/api/sellers/update-son")
+async def update_seller_son():
+    """Update ghn_token + shop_id + ghn_phone cho seller son."""
+    with get_conn() as conn:
+        conn.execute("""
+            UPDATE sellers SET ghn_token=?, ghn_shop_id=?, ghn_phone=?, ghn_connected=1
+            WHERE phone=? OR id=?
+        """, (GHN_MASTER_TOKEN, 5494011, "0986355512", "0356755871", "SEL_SON"))
+    return {"success": True, "message": "Đã update seller son với GHN token + shop_id 5494011"}
 
 
 @app.post("/api/sellers", status_code=201)
@@ -426,7 +438,8 @@ def _get_location_token(seller_id: str):
     with get_conn() as conn:
         row = conn.execute("SELECT ghn_token FROM sellers WHERE ghn_token IS NOT NULL AND ghn_token != '' LIMIT 1").fetchone()
         if row: return row["ghn_token"]
-    raise HTTPException(400, "Hệ thống chưa có GHN Token nào để lấy địa chỉ")
+    # Fallback về GHN_MASTER_TOKEN để load địa chỉ
+    return GHN_MASTER_TOKEN
 
 @app.get("/api/ghn/provinces")
 async def api_provinces(seller_id: str):
