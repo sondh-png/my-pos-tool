@@ -1466,25 +1466,22 @@ function OrderDetailDrawer({ order, onClose }) {
                 {loading && <div style={{ fontSize:13, color:C_TEXT_SECONDARY, textAlign:'center', padding:20 }}>Đang tải dữ liệu từ GHN...</div>}
                 {error && <div style={{ fontSize:13, color:'#DC2626', textAlign:'center', padding:20 }}>{error}</div>}
                 
-                {!loading && !error && data && (data.data?.log || data.log) && (data.data?.log || data.log).length > 0 && (() => {
-                  const logs = data.data?.log || data.log
-                  return (
-                    <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
-                      {[...logs].reverse().map((l, i) => (
-                        <div key={i} style={{ display:'flex', gap:12 }}>
-                          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', marginTop:4 }}>
-                            <div style={{ width:10, height:10, borderRadius:'50%', background: i===0?'#10B981':'#D1D5DB', flexShrink:0 }} />
-                            {i < logs.length - 1 && <div style={{ width:2, flex:1, background:'#E5E7EB', margin:'4px 0', minHeight:20 }} />}
-                          </div>
-                          <div style={{ flex:1, paddingBottom: i < logs.length - 1 ? 16 : 0 }}>
-                            <div style={{ fontSize:13, fontWeight: i===0?600:400, color: i===0?'#111827':'#4B5563' }}>{l.status}</div>
-                            <div style={{ fontSize:12, color:'#9CA3AF', marginTop:2 }}>{new Date(l.updated_date).toLocaleString('vi-VN')}</div>
-                          </div>
+                {!loading && !error && data && (data.data?.log || data.log) && (data.data?.log || data.log).length > 0 && (
+                  <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
+                    {[...(data.data?.log || data.log)].reverse().map((l, i, arr) => (
+                      <div key={i} style={{ display:'flex', gap:12 }}>
+                        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', marginTop:4 }}>
+                          <div style={{ width:10, height:10, borderRadius:'50%', background: i===0?'#10B981':'#D1D5DB', flexShrink:0 }} />
+                          {i < arr.length - 1 && <div style={{ width:2, flex:1, background:'#E5E7EB', margin:'4px 0', minHeight:20 }} />}
                         </div>
-                      ))}
-                    </div>
-                  )
-                })()}
+                        <div style={{ flex:1, paddingBottom: i < arr.length - 1 ? 16 : 0 }}>
+                          <div style={{ fontSize:13, fontWeight: i===0?600:400, color: i===0?'#111827':'#4B5563' }}>{l.status}</div>
+                          <div style={{ fontSize:12, color:'#9CA3AF', marginTop:2 }}>{new Date(l.updated_date).toLocaleString('vi-VN')}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {!loading && !error && !data && (
                   <div style={{ fontSize:13, color:C_TEXT_SECONDARY, textAlign:'center', padding:20 }}>
@@ -2250,12 +2247,11 @@ function AIAssistant() {
       { label: 'Preview Order', url: '/v2/shipping-order/preview', method: 'POST' },
       { label: 'Update Order', url: '/v2/shipping-order/update', method: 'POST' },
       { label: 'Order Info', url: '/v2/shipping-order/detail', method: 'POST' },
-      { label: 'Order Info by Client Code', url: '/v2/shipping-order/detail', method: 'GET' },
       { label: 'Cancel Order', url: '/v2/switch-status/cancel', method: 'POST' },
       { label: 'Return Order', url: '/v2/switch-status/return', method: 'POST' },
       { label: 'Delivery Again', url: '/v2/shipping-order/deliveryAgain', method: 'POST' },
       { label: 'Update COD', url: '/v2/shipping-order/updateCOD', method: 'POST' },
-      { label: 'Print Order (Get Token)', url: '/v2/a5/gen-token', method: 'POST' },
+      { label: 'Print Order', url: '/v2/a5/gen-token', method: 'POST' },
       { label: 'Pick Shift', url: '/v2/shift/date', method: 'GET' },
       { label: 'Get Station', url: '/v2/shipping-order/get-station', method: 'GET' },
       { label: 'Expected Delivery Time', url: '/v2/shipping-order/leadtime', method: 'POST' },
@@ -2278,16 +2274,12 @@ function AIAssistant() {
       { label: 'Create Ticket', url: '/v2/ticket/create', method: 'POST' },
       { label: 'Get Ticket', url: '/v2/ticket/detail', method: 'GET' },
       { label: 'Get Ticket List', url: '/v2/ticket/list', method: 'GET' },
-      { label: 'Create Feedback of Ticket', url: '/v2/ticket/feedback', method: 'POST' },
+      { label: 'Create Feedback', url: '/v2/ticket/feedback', method: 'POST' },
     ]},
     { group: '🔗 Affiliate', endpoints: [
       { label: 'Get OTP', url: '/v2/shop/getOTP', method: 'POST' },
       { label: 'Add Staff by OTP', url: '/v2/shop/employee/add', method: 'POST' },
       { label: 'Create Store by OTP', url: '/v2/shop/affiliateCreateWithShop', method: 'POST' },
-    ]},
-    { group: '🔔 Webhook', endpoints: [
-      { label: 'Callback Order Status', url: '/v2/webhook/order-status', method: 'POST' },
-      { label: 'Callback Ticket', url: '/v2/webhook/ticket', method: 'POST' },
     ]},
   ]
   const ENDPOINTS_LIST = ENDPOINTS_GROUPED.flatMap(g => g.endpoints.map(e => e.url))
@@ -2396,11 +2388,7 @@ function AIAssistant() {
             </div>
             <div className="api-field">
               <label>Endpoint</label>
-              <select value={apiForm.endpoint} onChange={e=>{
-                const allEps = ENDPOINTS_GROUPED.flatMap(g=>g.endpoints)
-                const found = allEps.find(ep=>ep.url===e.target.value)
-                setApiForm(p=>({...p, endpoint:e.target.value, method: found?.method || p.method}))
-              }}>
+              <select value={apiForm.endpoint} onChange={e=>setApiForm(p=>({...p,endpoint:e.target.value}))}>
                 {ENDPOINTS_GROUPED.map(g=>(
                   <optgroup key={g.group} label={g.group}>
                     {g.endpoints.map(ep=>(
@@ -2759,4 +2747,96 @@ function SellerManagementPage() {
           </div>
           <div style={{ padding:16, borderTop:'1px solid #E5E7EB', display:'flex', gap:8, flexShrink:0 }}>
             <button className="btn-outline" style={{ flex:1, justifyContent:'center' }} onClick={()=>setDrawerOpen(false)}>Huỷ</button>
-            <button className=
+            <button className="btn-orange" style={{ flex:2, justifyContent:'center' }} onClick={handleCreate}>✓ Tạo tài khoản</button>
+          </div>
+        </div>
+      </>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────
+// APP ROOT
+// ─────────────────────────────────────────────
+function App() {
+  const [session, setSession] = useState(null)
+  const [page, setPage]       = useState('orders')
+  const [booting, setBooting] = useState(true)
+
+  // On mount: check URL hash for seller link OR restore session
+  useEffect(() => {
+    const boot = async () => {
+      const key = getLoginKeyFromURL()
+      if (key) {
+        let sellerList = SELLERS_INIT
+        if (BACKEND_ONLINE) {
+          const res = await apiFetch('/api/sellers')
+          if (res.ok) sellerList = res.data.sellers
+        }
+        const seller = sellerList.find(s => (s.loginKey || s.login_key) === key)
+        if (seller && seller.status === 'active') {
+          const s = { role:'seller', sellerId:seller.id, sellerName:seller.name, loginKey:key }
+          setSession(s)
+          localStorage.setItem(SESSION_KEY, JSON.stringify(s))
+        }
+      } else {
+        const saved = getSession()
+        if (saved) setSession(saved)
+      }
+      setBooting(false)
+    }
+    boot()
+  }, [])
+
+  const handleLogin = (s) => {
+    setSession(s)
+    setPage('orders')
+  }
+
+  const handleLogout = () => {
+    clearSession()
+    setSession(null)
+    window.location.hash = ''
+    setPage('orders')
+  }
+
+  // Save session to localStorage
+  useEffect(() => {
+    if (session) setSession2(session)
+  }, [session])
+
+  function setSession2(s) { setSession(s); if(s) localStorage.setItem(SESSION_KEY, JSON.stringify(s)) }
+
+  if (booting) return (
+    <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#F3F4F6' }}>
+      <div style={{ fontSize:14, color:'#9CA3AF' }}>Đang tải...</div>
+    </div>
+  )
+
+  if (!session) return <LoginPage onLogin={(s) => { localStorage.setItem(SESSION_KEY, JSON.stringify(s)); setSession(s) }} />
+
+  const renderPage = () => {
+    if (page === 'orders')  return <AgencyOrdersPage session={session} />
+    if (page === 'sellers' && session.role === 'super_admin') return <SellerManagementPage />
+    if (page === 'ghn-connect' && session.role !== 'super_admin') return <GhnConnectPage session={session} />
+    return <AgencyOrdersPage session={session} />
+  }
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', height:'100vh', overflow:'hidden' }}>
+      <TopBar session={session} />
+      <div style={{ display:'flex', flex:1, overflow:'hidden' }}>
+        <Sidebar activePage={page} onNavigate={setPage} session={session} onLogout={handleLogout} />
+        <div style={{ flex:1, overflow:'hidden', display:'flex', flexDirection:'column' }}>
+          {renderPage()}
+        </div>
+      </div>
+      <AIAssistant />
+    </div>
+  )
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />)
+</script>
+</body>
+</html>
