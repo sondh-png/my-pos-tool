@@ -2244,12 +2244,53 @@ function AIAssistant() {
     setApiLoading(false)
   }
 
-  const ENDPOINTS_LIST = [
-    '/v2/shipping-order/create', '/v2/shipping-order/detail', '/v2/shipping-order/fee',
-    '/v2/shipping-order/available-services', '/v2/switch-status/cancel',
-    '/master-data/province', '/master-data/district', '/master-data/ward',
-    '/v2/shop/all', '/v2/shift/date',
+  const ENDPOINTS_GROUPED = [
+    { group: '📦 Order', endpoints: [
+      { label: 'Create Order', url: '/v2/shipping-order/create', method: 'POST' },
+      { label: 'Preview Order', url: '/v2/shipping-order/preview', method: 'POST' },
+      { label: 'Update Order', url: '/v2/shipping-order/update', method: 'POST' },
+      { label: 'Order Info', url: '/v2/shipping-order/detail', method: 'POST' },
+      { label: 'Order Info by Client Code', url: '/v2/shipping-order/detail', method: 'GET' },
+      { label: 'Cancel Order', url: '/v2/switch-status/cancel', method: 'POST' },
+      { label: 'Return Order', url: '/v2/switch-status/return', method: 'POST' },
+      { label: 'Delivery Again', url: '/v2/shipping-order/deliveryAgain', method: 'POST' },
+      { label: 'Update COD', url: '/v2/shipping-order/updateCOD', method: 'POST' },
+      { label: 'Print Order (Get Token)', url: '/v2/a5/gen-token', method: 'POST' },
+      { label: 'Pick Shift', url: '/v2/shift/date', method: 'GET' },
+      { label: 'Get Station', url: '/v2/shipping-order/get-station', method: 'GET' },
+      { label: 'Expected Delivery Time', url: '/v2/shipping-order/leadtime', method: 'POST' },
+    ]},
+    { group: '💰 Calculate Fee', endpoints: [
+      { label: 'Calculate Fee', url: '/v2/shipping-order/fee', method: 'GET' },
+      { label: 'Fee of Order Info', url: '/v2/shipping-order/fee-info', method: 'GET' },
+      { label: 'Get Available Services', url: '/v2/shipping-order/available-services', method: 'POST' },
+    ]},
+    { group: '🏪 Store', endpoints: [
+      { label: 'Get Store', url: '/v2/shop/all', method: 'GET' },
+      { label: 'Create Store', url: '/v2/shop/register', method: 'POST' },
+    ]},
+    { group: '📍 Address', endpoints: [
+      { label: 'Get Province', url: '/master-data/province', method: 'GET' },
+      { label: 'Get District', url: '/master-data/district', method: 'GET' },
+      { label: 'Get Ward', url: '/master-data/ward', method: 'GET' },
+    ]},
+    { group: '🎫 Ticket', endpoints: [
+      { label: 'Create Ticket', url: '/v2/ticket/create', method: 'POST' },
+      { label: 'Get Ticket', url: '/v2/ticket/detail', method: 'GET' },
+      { label: 'Get Ticket List', url: '/v2/ticket/list', method: 'GET' },
+      { label: 'Create Feedback of Ticket', url: '/v2/ticket/feedback', method: 'POST' },
+    ]},
+    { group: '🔗 Affiliate', endpoints: [
+      { label: 'Get OTP', url: '/v2/shop/getOTP', method: 'POST' },
+      { label: 'Add Staff by OTP', url: '/v2/shop/employee/add', method: 'POST' },
+      { label: 'Create Store by OTP', url: '/v2/shop/affiliateCreateWithShop', method: 'POST' },
+    ]},
+    { group: '🔔 Webhook', endpoints: [
+      { label: 'Callback Order Status', url: '/v2/webhook/order-status', method: 'POST' },
+      { label: 'Callback Ticket', url: '/v2/webhook/ticket', method: 'POST' },
+    ]},
   ]
+  const ENDPOINTS_LIST = ENDPOINTS_GROUPED.flatMap(g => g.endpoints.map(e => e.url))
 
   return (
     <>
@@ -2355,8 +2396,18 @@ function AIAssistant() {
             </div>
             <div className="api-field">
               <label>Endpoint</label>
-              <select value={apiForm.endpoint} onChange={e=>setApiForm(p=>({...p,endpoint:e.target.value}))}>
-                {ENDPOINTS_LIST.map(ep=><option key={ep} value={ep}>{ep}</option>)}
+              <select value={apiForm.endpoint} onChange={e=>{
+                const allEps = ENDPOINTS_GROUPED.flatMap(g=>g.endpoints)
+                const found = allEps.find(ep=>ep.url===e.target.value)
+                setApiForm(p=>({...p, endpoint:e.target.value, method: found?.method || p.method}))
+              }}>
+                {ENDPOINTS_GROUPED.map(g=>(
+                  <optgroup key={g.group} label={g.group}>
+                    {g.endpoints.map(ep=>(
+                      <option key={ep.label} value={ep.url}>[{ep.method}] {ep.label}</option>
+                    ))}
+                  </optgroup>
+                ))}
               </select>
             </div>
             <div className="api-field">
