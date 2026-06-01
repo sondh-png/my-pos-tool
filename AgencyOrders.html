@@ -1466,25 +1466,22 @@ function OrderDetailDrawer({ order, onClose }) {
                 {loading && <div style={{ fontSize:13, color:C_TEXT_SECONDARY, textAlign:'center', padding:20 }}>Đang tải dữ liệu từ GHN...</div>}
                 {error && <div style={{ fontSize:13, color:'#DC2626', textAlign:'center', padding:20 }}>{error}</div>}
                 
-                {!loading && !error && data && (data.data?.log || data.log) && (data.data?.log || data.log).length > 0 && (() => {
-                  const logs = data.data?.log || data.log
-                  return (
-                    <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
-                      {[...logs].reverse().map((l, i) => (
-                        <div key={i} style={{ display:'flex', gap:12 }}>
-                          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', marginTop:4 }}>
-                            <div style={{ width:10, height:10, borderRadius:'50%', background: i===0?'#10B981':'#D1D5DB', flexShrink:0 }} />
-                            {i < logs.length - 1 && <div style={{ width:2, flex:1, background:'#E5E7EB', margin:'4px 0', minHeight:20 }} />}
-                          </div>
-                          <div style={{ flex:1, paddingBottom: i < logs.length - 1 ? 16 : 0 }}>
-                            <div style={{ fontSize:13, fontWeight: i===0?600:400, color: i===0?'#111827':'#4B5563' }}>{l.status}</div>
-                            <div style={{ fontSize:12, color:'#9CA3AF', marginTop:2 }}>{new Date(l.updated_date).toLocaleString('vi-VN')}</div>
-                          </div>
+                {!loading && !error && data && (data.data?.log || data.log) && (data.data?.log || data.log).length > 0 && (
+                  <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
+                    {[...(data.data?.log || data.log)].reverse().map((l, i, arr) => (
+                      <div key={i} style={{ display:'flex', gap:12 }}>
+                        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', marginTop:4 }}>
+                          <div style={{ width:10, height:10, borderRadius:'50%', background: i===0?'#10B981':'#D1D5DB', flexShrink:0 }} />
+                          {i < arr.length - 1 && <div style={{ width:2, flex:1, background:'#E5E7EB', margin:'4px 0', minHeight:20 }} />}
                         </div>
-                      ))}
-                    </div>
-                  )
-                })()}
+                        <div style={{ flex:1, paddingBottom: i < arr.length - 1 ? 16 : 0 }}>
+                          <div style={{ fontSize:13, fontWeight: i===0?600:400, color: i===0?'#111827':'#4B5563' }}>{l.status}</div>
+                          <div style={{ fontSize:12, color:'#9CA3AF', marginTop:2 }}>{new Date(l.updated_date).toLocaleString('vi-VN')}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {!loading && !error && !data && (
                   <div style={{ fontSize:13, color:C_TEXT_SECONDARY, textAlign:'center', padding:20 }}>
