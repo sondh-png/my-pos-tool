@@ -1,0 +1,2803 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agency GHN – Quản lý Đơn hàng</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #root { height: 100%; }
+    body { font-family: 'Inter', sans-serif; background: #F3F4F6; color: #111827; }
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type=number] { -moz-appearance: textfield; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #9CA3AF; }
+    .tab-scroll { scrollbar-width: none; }
+    .tab-scroll::-webkit-scrollbar { display: none; }
+
+    @keyframes slideIn {
+      from { transform: translateX(100%); }
+      to   { transform: translateX(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    .btn-orange {
+      background: #FF5200; color: #fff; border: none; border-radius: 6px;
+      font-family: 'Inter', sans-serif; font-weight: 600; font-size: 14px;
+      padding: 8px 14px; cursor: pointer; display: flex; align-items: center; gap: 8px;
+      transition: background .15s, box-shadow .15s;
+      white-space: nowrap;
+    }
+    .btn-orange:hover { background: #E04A00; box-shadow: 0 2px 8px rgba(255,82,0,.3); }
+    .btn-outline {
+      background: #fff; color: #111827; border: 1px solid #E5E7EB; border-radius: 6px;
+      font-family: 'Inter', sans-serif; font-weight: 600; font-size: 14px;
+      padding: 8px 14px; cursor: pointer; transition: background .15s;
+      white-space: nowrap;
+    }
+    .btn-outline:hover { background: #F9FAFB; }
+    .nav-item {
+      display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+      border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500;
+      color: #6B7280; transition: background .15s, color .15s;
+      text-decoration: none;
+    }
+    .nav-item:hover { background: #F3F4F6; color: #111827; }
+    .nav-item.active { background: #FFF0E9; color: #FF5200; font-weight: 600; }
+    .row-hover { transition: background .1s; }
+    .row-hover:hover { background: #FAFAFA !important; }
+    .chip {
+      display: inline-flex; align-items: center; gap: 3px;
+      background: #D1FAE5; color: #059669; font-size: 12px; font-weight: 600;
+      padding: 1px 6px; border-radius: 4px; white-space: nowrap;
+    }
+    .drawer-card {
+      background: #fff; border: 1px solid #E5E7EB; border-radius: 8px;
+      display: flex; flex-direction: column; width: 100%;
+    }
+    .field-input {
+      background: #F9FAFB; border-radius: 6px; padding: 7px 12px;
+      display: flex; align-items: center; border: 1px solid transparent;
+      transition: border-color .15s;
+    }
+    .field-input:focus-within { border-color: #FF5200; background: #fff; }
+    .field-input input {
+      flex: 1; border: none; outline: none; font-size: 14px;
+      color: #111827; background: transparent; font-family: 'Inter', sans-serif;
+    }
+    .field-input input::placeholder { color: #9CA3AF; }
+    .num-input-wrap {
+      background: #F9FAFB; border-radius: 6px; display: flex; align-items: center;
+      border: 1px solid transparent; transition: border-color .15s; overflow: hidden;
+    }
+    .num-input-wrap:focus-within { border-color: #FF5200; background: #fff; }
+    .num-input-wrap input {
+      flex: 1; border: none; outline: none; font-size: 14px; color: #111827;
+      text-align: right; background: transparent; padding: 7px 8px;
+      font-family: 'Inter', sans-serif; min-width: 0;
+    }
+    .num-unit {
+      background: #F3F4F6; padding: 0 10px; height: 34px; display: flex;
+      align-items: center; font-size: 13px; color: #374151; flex-shrink: 0;
+      border-left: 1px solid #E5E7EB;
+    }
+    .service-card {
+      display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+      border-radius: 8px; cursor: pointer; border: 1.5px solid #E5E7EB;
+      transition: border-color .15s, background .15s;
+    }
+    .service-card.selected { border-color: #111827; background: #FAFAFA; }
+    .service-card:not(.selected):hover { border-color: #9CA3AF; }
+    .radio-dot {
+      width: 18px; height: 18px; border-radius: 50%; border: 2px solid #D1D5DB;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      transition: border-color .15s, background .15s;
+    }
+    .radio-dot.on { border-color: #111827; background: #111827; }
+    .radio-dot-inner { width: 6px; height: 6px; border-radius: 50%; background: #fff; }
+    .radio-orange { border-color: #D1D5DB; }
+    .radio-orange.on { border-color: #FF5200; background: #FF5200; }
+    .cb-blue {
+      width: 16px; height: 16px; border-radius: 3px; flex-shrink: 0; cursor: pointer;
+      border: 1.5px solid #D1D5DB; background: #fff;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .15s, border-color .15s;
+    }
+    .cb-blue.on { background: #3B82F6; border-color: #3B82F6; }
+    .cb-orange {
+      width: 20px; height: 20px; border-radius: 4px; flex-shrink: 0; cursor: pointer;
+      border: 1.5px solid #D1D5DB; background: #fff;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .15s, border-color .15s;
+    }
+    .cb-orange.on { background: #FF5200; border-color: #FF5200; }
+    .tab-btn {
+      display: flex; align-items: center; gap: 7px; padding: 9px 14px;
+      border-radius: 8px 8px 0 0; cursor: pointer; flex-shrink: 0;
+      border: 1px solid #E5E7EB; border-bottom: none;
+      font-size: 13px; font-weight: 600; color: #374151;
+      background: #F9FAFB; transition: background .15s;
+      white-space: nowrap;
+    }
+    .tab-btn.active { background: #111827; color: #fff; border-color: #111827; }
+    .tab-btn:not(.active):hover { background: #F3F4F6; }
+    .page-btn {
+      width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center;
+      justify-content: center; cursor: pointer; font-size: 13px; font-weight: 500;
+      transition: background .15s;
+    }
+    .page-btn:hover:not(.active-page) { background: #F3F4F6; }
+    .page-btn.active-page { background: #111827; color: #fff; }
+    .search-box {
+      display: flex; align-items: center; gap: 8px; padding: 7px 12px; flex: 1;
+      background: #fff; border: 1px solid #E5E7EB; border-radius: 6px;
+      transition: border-color .15s;
+    }
+    .search-box:focus-within { border-color: #FF5200; }
+    .search-box input {
+      flex: 1; border: none; outline: none; font-size: 14px;
+      color: #111827; background: transparent; font-family: 'Inter', sans-serif;
+    }
+    .search-box input::placeholder { color: #9CA3AF; }
+    .tlhh-badge {
+      background: #D1FAE5; color: #059669; font-size: 12px; font-weight: 600;
+      padding: 2px 7px; border-radius: 5px; white-space: nowrap;
+    }
+    .status-badge {
+      font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px;
+      white-space: nowrap;
+    }
+    .toggle-group {
+      display: flex; gap: 2px; background: #F3F4F6; border-radius: 7px; padding: 2px;
+    }
+    .toggle-btn {
+      padding: 4px 10px; border-radius: 5px; border: none; cursor: pointer;
+      font-size: 12px; font-weight: 600; transition: all .15s; background: transparent;
+      color: #6B7280; font-family: 'Inter', sans-serif;
+    }
+    .toggle-btn.on { background: #fff; color: #111827; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+    .sidebar { width: 200px; min-width: 200px; background: #fff; border-right: 1px solid #E5E7EB; display: flex; flex-direction: column; padding: 12px 8px; gap: 2px; }
+    .sidebar-section { font-size: 11px; font-weight: 600; color: #9CA3AF; text-transform: uppercase; letter-spacing: .05em; padding: 10px 12px 4px; }
+
+    /* ── AI Assistant ── */
+    .ai-fab {
+      position: fixed; bottom: 24px; right: 24px; z-index: 500;
+      width: 52px; height: 52px; border-radius: 50%;
+      background: linear-gradient(135deg, #FF5200, #FF8C00);
+      box-shadow: 0 4px 20px rgba(255,82,0,.45);
+      border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: transform .2s, box-shadow .2s;
+    }
+    .ai-fab:hover { transform: scale(1.1); box-shadow: 0 6px 28px rgba(255,82,0,.55); }
+    .ai-fab-badge {
+      position: absolute; top: -2px; right: -2px; width: 18px; height: 18px;
+      background: #10B981; border-radius: 50%; border: 2px solid #fff;
+      font-size: 9px; font-weight: 800; color: #fff;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ai-panel {
+      position: fixed; top: 0; right: 0; width: 420px; height: 100vh; z-index: 490;
+      background: #fff; box-shadow: -4px 0 32px rgba(0,0,0,.15);
+      display: flex; flex-direction: column;
+      transition: transform .3s cubic-bezier(.4,0,.2,1);
+    }
+    .ai-panel.closed { transform: translateX(100%); }
+    .ai-panel-hdr {
+      display: flex; align-items: center; gap: 10px; padding: 14px 16px;
+      background: linear-gradient(135deg, #FF5200, #FF8C00);
+      color: #fff; flex-shrink: 0;
+    }
+    .ai-tab-bar {
+      display: flex; border-bottom: 1px solid #E5E7EB; flex-shrink: 0;
+      background: #FAFAFA;
+    }
+    .ai-tab {
+      flex: 1; padding: 9px 4px; text-align: center; font-size: 12px; font-weight: 600;
+      color: #6B7280; cursor: pointer; border-bottom: 2px solid transparent;
+      transition: color .15s, border-color .15s;
+    }
+    .ai-tab.on { color: #FF5200; border-bottom-color: #FF5200; }
+    .chat-body { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; background: #F9FAFB; }
+    .msg-bubble {
+      max-width: 88%; padding: 10px 13px; border-radius: 12px;
+      font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word;
+    }
+    .msg-user { background: #FF5200; color: #fff; border-radius: 12px 12px 3px 12px; align-self: flex-end; }
+    .msg-bot  { background: #fff; color: #111827; border: 1px solid #E5E7EB; border-radius: 12px 12px 12px 3px; align-self: flex-start; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+    .msg-bot code { background: #F3F4F6; padding: 1px 5px; border-radius: 3px; font-family: monospace; font-size: 12px; }
+    .msg-bot pre { background: #1E293B; color: #E2E8F0; padding: 10px; border-radius: 8px; font-size: 12px; font-family: monospace; margin: 6px 0; overflow-x: auto; }
+    .msg-bot strong { font-weight: 700; color: #111827; }
+    .msg-typing { display: flex; gap: 4px; align-items: center; padding: 12px 14px; }
+    .msg-typing span { width: 7px; height: 7px; background: #9CA3AF; border-radius: 50%; animation: bounce .9s infinite; }
+    .msg-typing span:nth-child(2) { animation-delay: .15s; }
+    .msg-typing span:nth-child(3) { animation-delay: .3s; }
+    @keyframes bounce { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-5px); } }
+    .chat-input-wrap {
+      display: flex; gap: 8px; padding: 10px 12px; background: #fff;
+      border-top: 1px solid #E5E7EB; flex-shrink: 0;
+    }
+    .chat-input {
+      flex: 1; border: 1px solid #E5E7EB; border-radius: 8px; padding: 8px 12px;
+      font-size: 13px; font-family: 'Inter',sans-serif; resize: none; outline: none;
+      max-height: 100px; min-height: 36px; transition: border-color .15s;
+      color: #111827; background: #F9FAFB;
+    }
+    .chat-input:focus { border-color: #FF5200; background: #fff; }
+    .chat-send {
+      width: 36px; height: 36px; border-radius: 8px;
+      background: #FF5200; border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: background .15s;
+    }
+    .chat-send:hover { background: #E04A00; }
+    .kb-item {
+      background: #fff; border: 1px solid #E5E7EB; border-radius: 8px;
+      padding: 10px 12px; margin-bottom: 6px; cursor: pointer;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .kb-item:hover { border-color: #FF5200; box-shadow: 0 2px 8px rgba(255,82,0,.1); }
+    .conf-bar { height: 4px; border-radius: 2px; background: #E5E7EB; margin: 4px 0; }
+    .conf-fill { height: 4px; border-radius: 2px; transition: width .4s; }
+    .api-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+    .api-field label { font-size: 11px; font-weight: 600; color: #6B7280; text-transform: uppercase; }
+    .api-field input, .api-field select, .api-field textarea {
+      border: 1px solid #E5E7EB; border-radius: 6px; padding: 7px 10px;
+      font-size: 13px; font-family: 'Inter',sans-serif; outline: none;
+      color: #111827; background: #F9FAFB; transition: border-color .15s;
+    }
+    .api-field input:focus, .api-field select:focus, .api-field textarea:focus { border-color: #FF5200; background: #fff; }
+    .api-field textarea { resize: vertical; min-height: 70px; font-family: monospace; }
+    .result-box {
+      background: #0F172A; color: #E2E8F0; border-radius: 8px; padding: 12px;
+      font-family: monospace; font-size: 12px; white-space: pre-wrap;
+      word-break: break-all; max-height: 220px; overflow-y: auto; margin-top: 8px;
+    }
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px; }
+    .stat-card { background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 8px; padding: 10px; text-align: center; }
+    .stat-num { font-size: 22px; font-weight: 800; color: #FF5200; }
+    .stat-lbl { font-size: 11px; color: #6B7280; margin-top: 2px; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script type="text/babel">
+const { useState, useCallback, useMemo, useEffect, useRef } = React
+
+// ─────────────────────────────────────────────
+// SESSION MANAGEMENT
+// ─────────────────────────────────────────────
+const SESSION_KEY = 'pos_session'
+const ADMIN_USER  = 'admin'
+const ADMIN_PASS  = 'pos2024'
+
+function getLoginKeyFromURL() {
+  const hash = window.location.hash // e.g. #s=KEY123
+  const m = hash.match(/[#&]s=([^&]+)/)
+  return m ? m[1] : null
+}
+function getSession() {
+  try { return JSON.parse(localStorage.getItem(SESSION_KEY)) } catch { return null }
+}
+function setSession(s) { localStorage.setItem(SESSION_KEY, JSON.stringify(s)) }
+function clearSession() { localStorage.removeItem(SESSION_KEY) }
+
+// ─────────────────────────────────────────────
+// BACKEND API UTILITIES
+// ─────────────────────────────────────────────
+const API_BASE = window.location.origin.includes('localhost') ? 'http://localhost:8000' : ''
+
+async function apiFetch(path, opts = {}) {
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      headers: { 'Content-Type': 'application/json', ...opts.headers },
+      ...opts,
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.detail || data.message || `HTTP ${res.status}`)
+    return { ok: true, data }
+  } catch(e) {
+    return { ok: false, error: e.message }
+  }
+}
+
+// Check if backend is running
+let BACKEND_ONLINE = false
+fetch(`${API_BASE}/api/stats`)
+  .then(r => { if(r.ok) BACKEND_ONLINE = true })
+  .catch(() => {})
+
+
+// ─────────────────────────────────────────────
+// MOCK DATA
+// ─────────────────────────────────────────────
+const SHOPS = [
+  { id: 'SH001', agencyId: 'AGN001', sellerId: 'SEL001', name: 'Shop Thời Trang Minh Anh', ownerName: 'Trần Minh Anh', phone: '0901111111', address: '12 Phố Huế, Hà Nội',
+    configuredServices: [{ serviceId: 'SV001', demoFee: 22000 }, { serviceId: 'SV002', demoFee: 16200 }, { serviceId: 'SV003', demoFee: 35000 }] },
+  { id: 'SH002', agencyId: 'AGN001', sellerId: 'SEL002', name: 'Điện Tử Thành Công', ownerName: 'Lê Thành Công', phone: '0902222222', address: '45 Lê Văn Việt, HCM',
+    configuredServices: [{ serviceId: 'SV001', demoFee: 24000 }, { serviceId: 'SV002', demoFee: 18000 }] },
+  { id: 'SH003', agencyId: 'AGN001', sellerId: 'SEL003', name: 'Mỹ Phẩm Ngọc Hân', ownerName: 'Nguyễn Ngọc Hân', phone: '0903333333', address: '7 Trần Hưng Đạo, ĐN',
+    configuredServices: [{ serviceId: 'SV002', demoFee: 15000 }, { serviceId: 'SV003', demoFee: 32000 }] },
+]
+
+// ── SELLERS (Nhà bán hàng) ──────────────────
+const SELLERS_INIT = [
+  {
+    id: 'SEL001', name: 'Shop Thời Trang Minh Anh', ownerName: 'Trần Minh Anh',
+    phone: '0901111111', email: 'minhanh@gmail.com',
+    ghnToken: 'demo_token_SEL001', ghnShopId: 5100001,
+    loginKey: 'MA2024xT9k', status: 'active',
+    createdAt: '10/01/2024', shopId: 'SH001',
+  },
+  {
+    id: 'SEL002', name: 'Điện Tử Thành Công', ownerName: 'Lê Thành Công',
+    phone: '0902222222', email: 'thanhcong@gmail.com',
+    ghnToken: 'demo_token_SEL002', ghnShopId: 5100002,
+    loginKey: 'TC2024pW3m', status: 'active',
+    createdAt: '15/02/2024', shopId: 'SH002',
+  },
+  {
+    id: 'SEL003', name: 'Mỹ Phẩm Ngọc Hân', ownerName: 'Nguyễn Ngọc Hân',
+    phone: '0903333333', email: 'ngochan@gmail.com',
+    ghnToken: 'demo_token_SEL003', ghnShopId: 5100003,
+    loginKey: 'NH2024qR7v', status: 'inactive',
+    createdAt: '03/03/2024', shopId: 'SH003',
+  },
+]
+
+
+const SERVICES = [
+  { id: 'SV_LIGHT', name: 'Hàng nhẹ', desc: '< 20kg · Giao bằng xe máy', icon: '🛯️', serviceTypeId: 2 },
+  { id: 'SV_HEAVY', name: 'Hàng nặng', desc: '≥ 20kg · Giao bằng xe tải', icon: '🚚', serviceTypeId: 5 },
+]
+
+const PRICING = [
+  { id: 'PT001', surcharges: {
+    insurance:      [{ id:'I1', fromValue:'0', toValue:'500000', fixedFee:'3000', percentFee:'0' },
+                    { id:'I2', fromValue:'500001', toValue:'5000000', fixedFee:'0', percentFee:'0.5' }],
+    partialDelivery:{ value:'8000', unit:'VND' },
+    deliveryFailFee:{ value:'15000', unit:'VND' },
+    codFee:         [{ id:'C1', fromValue:'0', toValue:'1000000', fixedFee:'5000', percentFee:'0' },
+                    { id:'C2', fromValue:'1000001', toValue:'50000000', fixedFee:'0', percentFee:'0.5' }],
+  }},
+  { id: 'PT002', surcharges: {
+    insurance:      [{ id:'I3', fromValue:'0', toValue:'5000000', fixedFee:'5000', percentFee:'0' }],
+    partialDelivery:{ value:'12000', unit:'VND' },
+    deliveryFailFee:{ value:'20000', unit:'VND' },
+    codFee:         [{ id:'C3', fromValue:'0', toValue:'50000000', fixedFee:'8000', percentFee:'0' }],
+  }},
+]
+
+const ORDERS_BASE = [
+  { id:'ORD001', shopId:'SH001', trackingCode:'GHN00123460', status:'pending',    weight:1800, receiverName:'Đinh Mai',       receiverPhone:'0902233445', receiverAddress:'14 Láng Hạ, Đống Đa, HN', cod:750000, shippingFee:22000, createdBy:'Admin' },
+  { id:'ORD002', shopId:'SH002', trackingCode:'GHN00123461', status:'pickup',     weight:500,  receiverName:'Phạm Văn Bình',  receiverPhone:'0911223344', receiverAddress:'23 Điện Biên Phủ, Q3, HCM', cod:150000, shippingFee:18000, createdBy:'Admin' },
+  { id:'ORD003', shopId:'SH001', trackingCode:'GHN00123462', status:'in_transit', weight:1200, receiverName:'Lê Thị Cúc',    receiverPhone:'0922334455', receiverAddress:'5 Nguyễn Trãi, Hà Đông, HN', cod:320000, shippingFee:22000, createdBy:'Minh Anh' },
+  { id:'ORD004', shopId:'SH003', trackingCode:'GHN00123463', status:'in_transit', weight:800,  receiverName:'Trần Minh Đức', receiverPhone:'0933445566', receiverAddress:'88 Phan Đình Phùng, ĐN', cod:480000, shippingFee:15000, createdBy:'Admin' },
+  { id:'ORD005', shopId:'SH001', trackingCode:'GHN00123464', status:'returning',  weight:2100, receiverName:'Nguyễn Thị Em', receiverPhone:'0944556677', receiverAddress:'10 Lý Thường Kiệt, HCM', cod:0, shippingFee:35000, createdBy:'Minh Anh' },
+  { id:'ORD006', shopId:'SH002', trackingCode:'GHN00123465', status:'delivered',  weight:600,  receiverName:'Võ Văn Phong',  receiverPhone:'0955667788', receiverAddress:'33 Trần Phú, Đà Lạt', cod:210000, shippingFee:24000, createdBy:'Admin' },
+  { id:'ORD007', shopId:'SH003', trackingCode:'GHN00123466', status:'delivered',  weight:900,  receiverName:'Bùi Thị Giang', receiverPhone:'0966778899', receiverAddress:'15 Hùng Vương, Huế', cod:550000, shippingFee:32000, createdBy:'Ngọc Hân' },
+  { id:'ORD008', shopId:'SH001', trackingCode:'GHN00123467', status:'delivered',  weight:400,  receiverName:'Hoàng Văn Hải', receiverPhone:'0977889900', receiverAddress:'77 Ngô Quyền, HP', cod:95000, shippingFee:22000, createdBy:'Admin' },
+  { id:'ORD009', shopId:'SH002', trackingCode:'GHN00123468', status:'cancelled',  weight:700,  receiverName:'Đỗ Thị Hoa',   receiverPhone:'0988990011', receiverAddress:'41 Bà Triệu, HN', cod:175000, shippingFee:18000, createdBy:'Admin' },
+  { id:'ORD010', shopId:'SH003', trackingCode:'GHN00123469', status:'pending',    weight:1500, receiverName:'Phan Văn Hùng', receiverPhone:'0999001122', receiverAddress:'2 Đinh Tiên Hoàng, CT', cod:420000, shippingFee:15000, createdBy:'Ngọc Hân' },
+  { id:'ORD011', shopId:'SH001', trackingCode:'GHN00123470', status:'redelivery', weight:300,  receiverName:'Lý Thị Kim',   receiverPhone:'0900112233', receiverAddress:'19 Lê Lai, HCM', cod:680000, shippingFee:22000, createdBy:'Admin' },
+  { id:'ORD012', shopId:'SH002', trackingCode:'GHN00123471', status:'lost',       weight:2500, receiverName:'Mai Văn Long',  receiverPhone:'0911223300', receiverAddress:'56 Cách Mạng Tháng 8, HCM', cod:0, shippingFee:24000, createdBy:'Admin' },
+]
+
+const SAMPLE_PRODUCTS = [
+  ['Giày Thể Thao Nam - SL: 2'],
+  ['Áo Thun Cotton Nam - SL: 2', 'Bình Giữ Nhiệt - SL: 1'],
+  ['Áo Thun Trơn Cổ Tròn - SL: 10'],
+  ['Quần Jean Slim Fit - SL: 1', 'Áo Polo Cổ Bẻ - SL: 2'],
+  ['Son Môi Lâu Trôi - SL: 3'],
+  ['Kem Dưỡng Da SPF50 - SL: 2', 'Nước Tẩy Trang - SL: 1'],
+]
+
+// ─────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────
+const C_ACTION         = '#FF5200'
+const C_LINK           = '#3B82F6'
+const C_TEXT_PRIMARY   = '#111827'
+const C_TEXT_SECONDARY = '#6B7280'
+const C_BORDER         = '#E5E7EB'
+const C_BG_HEADER      = '#F3F4F6'
+
+const agencyShops = SHOPS.filter(s => s.agencyId === 'AGN001')
+const shopMap = Object.fromEntries(agencyShops.map(s => [s.id, s]))
+const agencyShopIds = new Set(agencyShops.map(s => s.id))
+
+function calcTierFee(amount, tiers) {
+  if (!tiers || tiers.length === 0 || amount <= 0) return 0
+  const tier = tiers.find(t => amount >= parseFloat(t.fromValue) && amount <= parseFloat(t.toValue))
+  if (!tier) return 0
+  return Math.round(amount * parseFloat(tier.percentFee) / 100 + parseFloat(tier.fixedFee))
+}
+
+function fmtVND(n) { return n.toLocaleString('vi-VN') }
+function fmtKg(g) { return (g / 1000).toFixed(1) }
+
+function getStatusLabel(s) {
+  const m = { pending:'Đơn nháp', pickup:'Chờ bàn giao', in_transit:'Đang giao',
+    returning:'Đang hoàn', redelivery:'Giao lại', delivered:'Hoàn tất',
+    cancelled:'Đã huỷ', failed:'Thất bại', lost:'Thất lạc', damaged:'Hư hỏng' }
+  return m[s] || s
+}
+function getStatusColor(s) {
+  if (['delivered'].includes(s)) return { bg:'#D1FAE5', color:'#059669' }
+  if (['pending'].includes(s)) return { bg:'#FEF3C7', color:'#D97706' }
+  if (['in_transit','pickup'].includes(s)) return { bg:'#DBEAFE', color:'#2563EB' }
+  if (['cancelled','failed','lost','damaged'].includes(s)) return { bg:'#FEE2E2', color:'#DC2626' }
+  return { bg:'#F3F4F6', color:'#6B7280' }
+}
+
+const orderProducts = {}
+ORDERS_BASE.forEach((o, i) => { orderProducts[o.id] = SAMPLE_PRODUCTS[i % SAMPLE_PRODUCTS.length] })
+
+// ─────────────────────────────────────────────
+// SVG ICONS
+// ─────────────────────────────────────────────
+const IC = '#6B7280'
+const Ic = {
+  X: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={IC} strokeWidth="2.2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>,
+  Store: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={IC} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18M3 7v1a3 3 0 006 0V7m0 1a3 3 0 006 0V7m0 1a3 3 0 006 0V7H3l2-4h14l2 4M5 21V10.85M19 21V10.85M9 21v-4a2 2 0 012-2h2a2 2 0 012 2v4"/></svg>,
+  User: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={IC} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>,
+  Cube: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={IC} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16.196V8.203a1 1 0 00-.496-.864l-7-4a1 1 0 00-1.008 0l-7 4A1 1 0 004 8.203v7.993a1 1 0 00.496.864l7 4a1 1 0 001.008 0l7-4A1 1 0 0021 16.196z"/><path d="M4 8l8 4m0 0l8-4m-8 4v9"/></svg>,
+  Clipboard: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={IC} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/><path d="M9 12h6M9 16h4"/></svg>,
+  Truck: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={IC} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h11a2 2 0 012 2v3"/><rect x="9" y="11" width="14" height="10" rx="2"/><circle cx="12" cy="21" r="1"/><circle cx="20" cy="21" r="1"/></svg>,
+  ChevDown: ({ size=16, color=IC }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6"/></svg>,
+  ChevLeft: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4B5563" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>,
+  ChevRight: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4B5563" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>,
+  Search: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>,
+  Plus: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>,
+  Help: () => <svg width="14" height="14" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7.5" fill="#9CA3AF"/><path d="M6.7 6.2C6.7 5.4 7.3 5 8 5c.8 0 1.3.5 1.3 1.2 0 .6-.4 1-.9 1.3-.3.2-.4.5-.4.8v.4" stroke="white" strokeWidth="1.1" strokeLinecap="round"/><circle cx="8" cy="10.6" r=".65" fill="white"/></svg>,
+  Package: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>,
+  Shop: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18M3 7v1a3 3 0 006 0V7m0 1a3 3 0 006 0V7m0 1a3 3 0 006 0V7H3l2-4h14l2 4M5 21V10.85M19 21V10.85M9 21v-4a2 2 0 012-2h2a2 2 0 012 2v4"/></svg>,
+  Orders: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/><path d="M9 12h6M9 16h4"/></svg>,
+  Settings: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>,
+  Wifi: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.55a11 11 0 0114.08 0M1.42 9a16 16 0 0121.16 0M8.53 16.11a6 6 0 016.95 0M12 20h.01"/></svg>,
+  Swap: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/></svg>,
+  Logout: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>,
+  Check: ({ size=10 }) => <svg width={size} height={size-1} viewBox="0 0 12 9" fill="none"><path d="M1 4L4.5 7.5L11 1" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+}
+
+// ─────────────────────────────────────────────
+// SMALL COMPONENTS
+// ─────────────────────────────────────────────
+function CbBlue({ checked, onChange }) {
+  return (
+    <div className={`cb-blue ${checked ? 'on' : ''}`} onClick={onChange}>
+      {checked && <Ic.Check size={9} />}
+    </div>
+  )
+}
+function CbOrange({ checked, onChange }) {
+  return (
+    <div className={`cb-orange ${checked ? 'on' : ''}`} onClick={(e) => { e.stopPropagation(); onChange?.() }}>
+      {checked && <Ic.Check size={11} />}
+    </div>
+  )
+}
+function RadioDot({ on, orange }) {
+  return (
+    <div className={`radio-dot ${orange ? 'radio-orange' : ''} ${on ? 'on' : ''}`}>
+      {on && <div className="radio-dot-inner" />}
+    </div>
+  )
+}
+function NumInput({ value, onChange, unit, flex1, width }) {
+  return (
+    <div className="num-input-wrap" style={flex1 ? { flex: 1, minWidth: 0 } : { width: width || 175, flexShrink: 0 }}>
+      <input type="number" value={value} onChange={e => onChange(parseFloat(e.target.value) || 0)} />
+      <div className="num-unit">{unit}</div>
+    </div>
+  )
+}
+function InfoRow({ label, hint, children }) {
+  return (
+    <div style={{ display:'flex', alignItems:'center', gap:8, minHeight:34 }}>
+      <div style={{ flex:1, display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
+        <span style={{ fontSize:14, color:C_TEXT_PRIMARY, whiteSpace:'nowrap' }}>{label}</span>
+        {hint && <Ic.Help />}
+      </div>
+      {children}
+    </div>
+  )
+}
+function CardHdr({ icon, label, right }) {
+  return (
+    <>
+      <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', flexShrink:0 }}>
+        {icon}
+        <span style={{ flex:1, fontSize:14, fontWeight:700, color:C_TEXT_PRIMARY }}>{label}</span>
+        {right}
+      </div>
+      <div style={{ height:1, background:C_BORDER, flexShrink:0 }} />
+    </>
+  )
+}
+function DropField({ value, placeholder }) {
+  return (
+    <div className="field-input" style={{ cursor:'pointer' }}>
+      <span style={{ flex:1, fontSize:14, color: value ? C_TEXT_PRIMARY : '#9CA3AF' }}>{value || placeholder}</span>
+      <Ic.ChevDown />
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────
+// MASTER DATA (Địa chỉ GHN)
+// ─────────────────────────────────────────────
+const PROVINCES = [
+  { id: 201, name: 'Hà Nội' },
+  { id: 202, name: 'Hồ Chí Minh' },
+  { id: 203, name: 'Đà Nẵng' },
+]
+const DISTRICTS = {
+  201: [{ id: 1482, name: 'Quận Ba Đình' }, { id: 1488, name: 'Quận Đống Đa' }],
+  202: [{ id: 1442, name: 'Quận 1' }, { id: 1443, name: 'Quận 2' }],
+  203: [{ id: 1521, name: 'Quận Hải Châu' }, { id: 1522, name: 'Quận Sơn Trà' }],
+}
+const WARDS = {
+  1482: [{ code: '1A', name: 'Phường Cống Vị' }, { code: '1B', name: 'Phường Điện Biên' }],
+  1488: [{ code: '2A', name: 'Phường Cát Linh' }, { code: '2B', name: 'Phường Láng Hạ' }],
+  1442: [{ code: '3A', name: 'Phường Bến Nghé' }, { code: '3B', name: 'Phường Bến Thành' }],
+  1443: [{ code: '4A', name: 'Phường An Phú' }, { code: '4B', name: 'Phường Thảo Điền' }],
+  1521: [{ code: '5A', name: 'Phường Hải Châu I' }],
+  1522: [{ code: '6A', name: 'Phường An Hải Bắc' }],
+}
+
+// ─────────────────────────────────────────────
+// CREATE ORDER DRAWER
+// ─────────────────────────────────────────────
+function CreateOrderDrawer({ open, onClose, onCreated }) {
+  const [shopId, setShopId]                 = useState(agencyShops[0]?.id ?? '')
+  const [rcvName, setRcvName]               = useState('')
+  const [rcvPhone, setRcvPhone]             = useState('')
+  const [rcvStreet, setRcvStreet]           = useState('')
+  const [provinceId, setProvinceId]         = useState('')
+  const [districtId, setDistrictId]         = useState('')
+  const [wardCode, setWardCode]             = useState('')
+
+  const [sndName, setSndName]               = useState('')
+  const [sndPhone, setSndPhone]             = useState('')
+  const [sndStreet, setSndStreet]           = useState('')
+
+  // Real address data from backend
+  const [provinces, setProvinces]   = useState(PROVINCES)
+  const [districts, setDistricts]   = useState([])
+  const [wards, setWards]           = useState([])
+  const [loadingAddr, setLoadingAddr] = useState(false)
+  const [productLines, setProductLines] = useState([{ id: Date.now(), name: '', qty: 1, price: 0, weight: 0.2, dimD: 10, dimR: 10, dimC: 10 }])
+  const addProductLine = () => setProductLines(p => [...p, { id: Date.now(), name: '', qty: 1, price: 0, weight: 0.2, dimD: 10, dimR: 10, dimC: 10 }])
+  const removeProductLine = (id) => setProductLines(p => p.filter(l => l.id !== id))
+  const updateProductLine = (id, field, val) => setProductLines(p => p.map(l => l.id === id ? { ...l, [field]: val } : l))
+
+  const [cod, setCod]                       = useState(0)
+  const [discount, setDiscount]             = useState(0)
+  const [shipCollect, setShipCollect]       = useState(0)
+  const [goodsValue, setGoodsValue]         = useState(0)
+  const [shopCode, setShopCode]             = useState('')
+  const [declareValue, setDeclareValue]     = useState(false)
+  const [partialDeliver, setPartialDeliver] = useState(false)
+  const [collectOnFail, setCollectOnFail]   = useState(true)
+  const [collectAmt, setCollectAmt]         = useState(0)
+  const [feePayer, setFeePayer]             = useState('sender')
+  const [creating, setCreating]             = useState(false)
+
+  const selectedShop = agencyShops.find(s => s.id === shopId) ?? agencyShops[0]
+
+  const currentServices = useMemo(() =>
+    (selectedShop?.configuredServices ?? []).map(cs => ({
+      ...cs, service: SERVICES.find(sv => sv.id === cs.serviceId)
+    })).filter(cs => cs.service?.priceTableId)
+  , [shopId])
+
+  const [serviceId, setServiceId] = useState(currentServices[0]?.serviceId ?? '')
+  const [serviceType, setServiceType]     = useState('light')  // 'light' | 'heavy'
+  const [packagingMode, setPackagingMode] = useState('gop')    // 'gop' | 'tach_sl' | 'tach_dong'
+  const handleShopChange = (e) => {
+    setShopId(e.target.value)
+    const shop = agencyShops.find(s => s.id === e.target.value)
+    const first = (shop?.configuredServices ?? [])[0]?.serviceId ?? ''
+    setServiceId(first)
+  }
+
+  // Load real provinces from backend on open
+  useEffect(() => {
+    if (!open) return
+    const session = getSession()
+    const sellerId = session?.sellerId || null
+    if (!sellerId) return
+    apiFetch(`/api/ghn/provinces?seller_id=${sellerId}`)
+      .then(r => { if (r.ok && r.data.data) setProvinces(r.data.data.map(p => ({ id: p.ProvinceID, name: p.ProvinceName }))) })
+      .catch(() => {})
+  }, [open])
+
+  // Load districts when province changes
+  useEffect(() => {
+    if (!provinceId) return
+    const session = getSession()
+    const sellerId = session?.sellerId || null
+    if (!sellerId) return
+    setLoadingAddr(true)
+    apiFetch(`/api/ghn/districts?seller_id=${sellerId}&province_id=${provinceId}`)
+      .then(r => { if (r.ok && r.data.data) setDistricts(r.data.data.map(d => ({ id: d.DistrictID, name: d.DistrictName }))) })
+      .finally(() => setLoadingAddr(false))
+  }, [provinceId])
+
+  // Load wards when district changes
+  useEffect(() => {
+    if (!districtId) return
+    const session = getSession()
+    const sellerId = session?.sellerId || null
+    if (!sellerId) return
+    setLoadingAddr(true)
+    apiFetch(`/api/ghn/wards?seller_id=${sellerId}&district_id=${districtId}`)
+      .then(r => { if (r.ok && r.data.data) setWards(r.data.data.map(w => ({ code: w.WardCode, name: w.WardName }))) })
+      .finally(() => setLoadingAddr(false))
+  }, [districtId])
+
+  const totalWeight = useMemo(() => productLines.reduce((s, l) => s + l.qty * (l.weight || 0), 0), [productLines])
+  const totalConvertedWt = useMemo(() => productLines.reduce((s, l) => s + l.qty * Math.max(l.weight || 0, ((l.dimD||0) * (l.dimR||0) * (l.dimC||0)) / 5000), 0), [productLines])
+  const dimD = Math.max(...productLines.map(l => l.dimD || 0)) || 10
+  const dimR = Math.max(...productLines.map(l => l.dimR || 0)) || 10
+  const dimC = Math.max(...productLines.map(l => l.dimC || 0)) || 10
+  const convertedWt = totalConvertedWt
+
+  // ─ Tính số kiện cho hàng nặng ─────────────────────────────────────────────────
+  const packageCount = useMemo(() => {
+    if (serviceType !== 'heavy') return 1
+    const active = productLines.filter(l => l.qty > 0)
+    if (packagingMode === 'tach_sl') return active.reduce((s, l) => s + l.qty, 0)
+    if (packagingMode === 'tach_dong') return active.length
+    return 1 // gộp kiện
+  }, [serviceType, packagingMode, productLines])
+
+  const currentServicesWithFee = useMemo(() => {
+    return currentServices.map(cs => {
+      let fee = cs.demoFee
+      if (provinceId && districtId) {
+        // GHN Mock Fee Formula
+        const isIntra = (provinceId == 202) // Assuming sender is in HCM (202)
+        const base = isIntra ? 16500 : 28500
+        const step = Math.ceil(Math.max(0, convertedWt - 0.5) / 0.5) * 2500
+        fee = base + step
+        // Surcharge for express service
+        if (cs.serviceId === 'SVC2') fee += 12000
+      }
+      return { ...cs, calculatedFee: fee }
+    })
+  }, [currentServices, provinceId, districtId, convertedWt])
+
+  // Auto-fetch real fee from backend when address + weight ready
+  useEffect(() => {
+    if (!BACKEND_ONLINE || !provinceId || !districtId || !wardCode) return
+    const session = getSession()
+    const sellerId = session?.sellerId || null
+    if (!sellerId) return
+    const svc = currentServicesWithFee[0]
+    if (!svc?.serviceId) return
+    apiFetch('/api/ghn/fee', {
+      method: 'POST',
+      body: JSON.stringify({
+        seller_id: sellerId,
+        service_id: typeof svc.serviceId === 'number' ? svc.serviceId : parseInt(svc.serviceId.replace(/\D/g,'')||'0'),
+        from_district_id: 1442,
+        to_district_id: parseInt(districtId),
+        to_ward_code: wardCode,
+        weight: Math.round(convertedWt * 1000),
+        length: dimD, width: dimR, height: dimC,
+      })
+    }).then(r => {
+      if (r.ok && r.data?.data?.total) {
+      }
+    }).catch(() => {})
+  }, [provinceId, districtId, wardCode, convertedWt])
+
+  const selectedSvcConf = currentServicesWithFee.find(cs => cs.serviceId === serviceId)
+  const selectedSvc     = selectedSvcConf?.service
+  const priceTable      = selectedSvc?.priceTableId ? PRICING.find(p => p.id === selectedSvc.priceTableId) : null
+  const surcharges      = priceTable?.surcharges ?? {}
+
+  const feeShipping     = selectedSvcConf?.calculatedFee ?? 0
+  const feeInsurance    = declareValue && goodsValue > 0 ? calcTierFee(goodsValue, surcharges.insurance ?? []) : 0
+  const feePartial      = partialDeliver ? parseInt(surcharges.partialDelivery?.value ?? '0', 10) : 0
+  const feeDelivFail    = collectOnFail ? parseInt(surcharges.deliveryFailFee?.value ?? '0', 10) : 0
+  const feeCod          = cod > 0 ? calcTierFee(cod, surcharges.codFee ?? []) : 0
+  const totalShipping   = feeShipping + feeInsurance + feePartial + feeDelivFail + feeCod
+  const totalCollect    = feePayer === 'sender' ? cod + (shipCollect > 0 ? shipCollect : 0) : cod + feeShipping
+
+  const now = new Date()
+  const createdAt = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')} - ${now.getDate().toString().padStart(2,'0')}/${(now.getMonth()+1).toString().padStart(2,'0')}/${now.getFullYear()}`
+
+  const handleCreate = () => {
+    const session  = getSession()
+    const sellerId = session?.role === 'super_admin'
+      ? (agencyShops.find(s => s.id === shopId)?.sellerId || shopId)
+      : session?.sellerId
+    const svcTypeId = serviceType === 'heavy' ? 5 : 2
+
+    // ─ Xây dựng mảng items (danh sách kiện / hàng hóa) ─────────────────────────
+    const buildItems = () => {
+      const active = productLines.filter(l => l.qty > 0)
+      if (serviceType === 'light') {
+        // Hàng nhẹ: Không truyền kích thước vào từng item
+        return active.map(l => ({ name: l.name || 'Hàng hoá', quantity: l.qty, weight: Math.round(l.weight * 1000) || 200 }))
+      }
+      
+      // Hàng nặng: Kích thước phải truyền vào từng item (Vị trí số 2)
+      if (packagingMode === 'tach_sl') {
+        const pkgs = []
+        active.forEach(l => {
+          for (let i = 0; i < l.qty; i++) {
+            const w = Math.round(l.weight * 1000) || 200
+            pkgs.push({ name: l.name || 'Hàng', quantity: 1, weight: w, length: Math.round(l.dimD)||10, width: Math.round(l.dimR)||10, height: Math.round(l.dimC)||10 })
+          }
+        })
+        return pkgs
+      }
+      if (packagingMode === 'tach_dong') {
+        return active.map(l => {
+          const w = Math.round(l.weight * l.qty * 1000) || 200
+          return { name: l.name || 'Hàng', quantity: l.qty, weight: w, length: Math.round(l.dimD)||10, width: Math.round(l.dimR)||10, height: Math.round(l.dimC)||10 }
+        })
+      }
+      // Gộp kiện (Hàng nặng)
+      const names = active.map(l => `${l.name} (x${l.qty})`).join(', ')
+      return [{
+         name: names || 'Đơn hàng gộp',
+         quantity: 1,
+         weight: Math.round(convertedWt * 1000) || 1000,
+         length: Math.round(dimD)||10, width: Math.round(dimR)||10, height: Math.round(dimC)||10
+      }]
+    }
+
+    const itemsList = buildItems()
+
+    const payload = {
+      seller_id: sellerId,
+      from_name: sndName || undefined,
+      from_phone: sndPhone || undefined,
+      from_address: sndStreet || undefined,
+      to_name: rcvName || 'Khách hàng',
+      to_phone: rcvPhone,
+      to_address: rcvStreet,
+      to_ward_code: wardCode,
+      to_district_id: parseInt(districtId),
+      to_province_id: parseInt(provinceId) || null,
+      service_id: typeof serviceId === 'number' ? serviceId : 0,
+      service_type_id: svcTypeId,
+      payment_type_id: feePayer === 'receiver' ? 2 : 1,
+      cod_amount: cod,
+      insurance_value: declareValue ? goodsValue : 0,
+      note: '',
+      // Vị trí 1: thông số tổng
+      weight: Math.round(convertedWt * 1000) || 1000,
+      length: Math.round(dimD) || 10,
+      width: Math.round(dimR) || 10,
+      height: Math.round(dimC) || 10,
+      // Vị trí 2: thông số chi tiết (cho hàng nặng)
+      items: itemsList
+    }
+
+    const newOrder = {
+      id: 'ORD' + Date.now(),
+      shopId,
+      trackingCode: 'GHN' + Math.floor(10000000 + Math.random() * 90000000),
+      status: 'pending',
+      weight: payload.weight,
+      receiverName: rcvName || 'Khách hàng mới',
+      receiverPhone: rcvPhone,
+      receiverAddress: `${rcvStreet}, ${provinceId ? provinces.find(p => p.id == provinceId)?.name : ''}`,
+      cod, shippingFee: feeShipping, createdBy: 'Admin',
+    }
+
+    if (BACKEND_ONLINE && sellerId && wardCode && districtId) {
+      setCreating(true)
+      // Gửi đúng 1 request với nhiều packages (items) bên trong
+      apiFetch('/api/orders', { method: 'POST', body: JSON.stringify(payload) })
+        .then(r => {
+          if (r.ok && r.data?.order_code) {
+            newOrder.trackingCode = r.data.order_code
+            newOrder.status = 'pickup'
+            const label = serviceType === 'heavy' ? `${itemsList.length} kiện hàng nặng` : `Sản phẩm - SL: ${itemsList.length}`
+            onCreated(newOrder, label)
+            onClose()
+          } else {
+            alert('Lỗi tạo đơn GHN: ' + (r?.error || 'Kiểm tra lại Token/ShopID hoặc dữ liệu'))
+          }
+        }).catch(e => alert('Lỗi kết nối Backend: ' + e.message))
+        .finally(() => setCreating(false))
+    } else {
+      const label = serviceType === 'heavy' ? `${itemsList.length} kiện hàng nặng` : `Sản phẩm - SL: ${itemsList.length}`
+      onCreated(newOrder, label)
+      onClose()
+    }
+  }
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        style={{
+          position:'fixed', inset:0, background:'rgba(0,0,0,0.3)', zIndex:200,
+          opacity: open ? 1 : 0, pointerEvents: open ? 'auto' : 'none',
+          transition:'opacity 0.25s',
+        }}
+      />
+      {/* Panel */}
+      <div style={{
+        position:'fixed', top:0, right:0, width:980, maxWidth:'100vw', height:'100vh',
+        background:'#fff', boxShadow:'-4px 0 24px rgba(0,0,0,.18)',
+        zIndex:201, display:'flex', flexDirection:'column',
+        transform: open ? 'translateX(0)' : 'translateX(100%)',
+        transition:'transform 0.3s cubic-bezier(0.4,0,0.2,1)',
+      }}>
+        {/* Header */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'13px 16px', flexShrink:0 }}>
+          <span style={{ fontSize:15, fontWeight:700, color:C_TEXT_PRIMARY }}>Tạo đơn hàng</span>
+          <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', padding:4, display:'flex', borderRadius:4 }}>
+            <Ic.X />
+          </button>
+        </div>
+        <div style={{ height:1, background:C_BORDER, flexShrink:0 }} />
+
+        {/* Body */}
+        <div style={{ flex:1, display:'flex', gap:6, padding:6, background:'#F3F4F6', overflow:'hidden' }}>
+
+          {/* ── LEFT ── */}
+          <div style={{ flex:1, minWidth:0, height:'100%', display:'flex', flexDirection:'column', gap:6, overflowY:'auto' }}>
+
+            {/* Shop */}
+            <div className="drawer-card">
+              <CardHdr icon={<Ic.Store />} label="Shop tạo đơn" />
+              <div style={{ padding:'8px 12px' }}>
+                <div className="field-input" style={{ cursor:'pointer' }}>
+                  <select value={shopId} onChange={handleShopChange}
+                    style={{ flex:1, border:'none', outline:'none', fontSize:14, color:C_TEXT_PRIMARY, background:'transparent', cursor:'pointer', fontFamily:'Inter,sans-serif' }}>
+                    {agencyShops.map(s => (
+                      <option key={s.id} value={s.id}>{s.name} — {s.ownerName}</option>
+                    ))}
+                  </select>
+                  <Ic.ChevDown />
+                </div>
+              </div>
+            </div>
+
+            {/* Bên gửi */}
+            <div className="drawer-card">
+              <CardHdr icon={<Ic.Store />} label="Bên gửi" />
+              <div style={{ display:'flex', flexDirection:'column', gap:4, padding:'8px 12px' }}>
+                <div style={{ display:'flex', gap:4 }}>
+                  <div className="field-input" style={{ flex:1 }}>
+                    <input value={sndName} onChange={e => setSndName(e.target.value)} placeholder={selectedShop?.ownerName || 'Tên người gửi'} />
+                  </div>
+                  <div className="field-input" style={{ flex:1 }}>
+                    <input value={sndPhone} onChange={e => setSndPhone(e.target.value)} placeholder={selectedShop?.phone || 'Số điện thoại'} />
+                  </div>
+                </div>
+                <div className="field-input">
+                  <input value={sndStreet} onChange={e => setSndStreet(e.target.value)} placeholder={selectedShop?.address || 'Địa chỉ (Số nhà, tên đường...)'} />
+                </div>
+                <div style={{ display:'flex', alignItems:'center', gap:8, padding:'4px 0' }}>
+                  <RadioDot on={true} orange />
+                  <span style={{ fontSize:14, color:C_TEXT_PRIMARY }}>Lấy hàng tận nơi</span>
+                </div>
+                <DropField placeholder="Chọn ca lấy hàng (Tuỳ chọn)" />
+              </div>
+            </div>
+
+            {/* Bên nhận */}
+            <div className="drawer-card">
+              <CardHdr icon={<Ic.User />} label="Bên nhận" />
+              <div style={{ display:'flex', flexDirection:'column', gap:4, padding:'8px 12px' }}>
+                <div style={{ display:'flex', gap:4 }}>
+                  <div className="field-input" style={{ flex:1 }}>
+                    <input value={rcvName} onChange={e => setRcvName(e.target.value)} placeholder="Tên người nhận" />
+                  </div>
+                  <div className="field-input" style={{ flex:1, position:'relative' }}>
+                    <input value={rcvPhone} onChange={e => setRcvPhone(e.target.value)} placeholder="Số điện thoại" style={{ paddingRight:72 }} />
+                    <div className="tlhh-badge" style={{ position:'absolute', right:8 }}>TLHH:0%</div>
+                  </div>
+                </div>
+                <div className="field-input">
+                  <input value={rcvStreet} onChange={e => setRcvStreet(e.target.value)} placeholder="Số nhà, tên đường" />
+                </div>
+                
+                <div style={{ display:'flex', gap:4 }}>
+                  <div className="field-input" style={{ flex:1, cursor:'pointer' }}>
+                    <select value={provinceId} onChange={e => { setProvinceId(e.target.value); setDistrictId(''); setWardCode(''); setDistricts(BACKEND_ONLINE ? [] : (DISTRICTS[e.target.value]||[])); setWards([]) }}
+                      style={{ flex:1, border:'none', outline:'none', fontSize:13, color:provinceId?C_TEXT_PRIMARY:'#9CA3AF', background:'transparent', appearance:'none' }}>
+                      <option value="" disabled>Tỉnh/Thành {loadingAddr?'⏳':''}</option>
+                      {provinces.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                    <Ic.ChevDown />
+                  </div>
+                  <div className="field-input" style={{ flex:1, cursor:'pointer' }}>
+                    <select value={districtId} onChange={e => { setDistrictId(e.target.value); setWardCode(''); setWards(BACKEND_ONLINE ? [] : (WARDS[e.target.value]||[])) }} disabled={!provinceId}
+                      style={{ flex:1, border:'none', outline:'none', fontSize:13, color:districtId?C_TEXT_PRIMARY:'#9CA3AF', background:'transparent', appearance:'none' }}>
+                      <option value="" disabled>Quận/Huyện {loadingAddr?'⏳':''}</option>
+                      {(BACKEND_ONLINE ? districts : (DISTRICTS[provinceId]||[])).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                    </select>
+                    <Ic.ChevDown />
+                  </div>
+                </div>
+                <div className="field-input" style={{ cursor:'pointer' }}>
+                  <select value={wardCode} onChange={e => setWardCode(e.target.value)} disabled={!districtId}
+                    style={{ flex:1, border:'none', outline:'none', fontSize:13, color:wardCode?C_TEXT_PRIMARY:'#9CA3AF', background:'transparent', appearance:'none' }}>
+                    <option value="" disabled>Phường/Xã {loadingAddr?'⏳':''}</option>
+                    {(BACKEND_ONLINE ? wards : (WARDS[districtId]||[])).map(w => <option key={w.code} value={w.code}>{w.name}</option>)}
+                  </select>
+                  <Ic.ChevDown />
+                </div>
+              </div>
+            </div>
+
+            {/* Sản phẩm */}
+            <div className="drawer-card" style={{ flex:1 }}>
+              <CardHdr icon={<Ic.Cube />} label="Sản phẩm" />
+              <div style={{ padding:'8px 12px' }}>
+                <div style={{ border:`1px solid ${C_BORDER}`, borderRadius:6, overflow:'hidden' }}>
+                  <div style={{ display:'flex', background:C_BG_HEADER }}>
+                    <div style={{ flex:1, padding:'6px 8px' }}><span style={{ fontSize:13, fontWeight:600, color:C_TEXT_PRIMARY }}>Tên sản phẩm</span></div>
+                    <div style={{ width:50, flexShrink:0, padding:'6px 8px', textAlign:'center' }}><span style={{ fontSize:13, fontWeight:600, color:C_TEXT_PRIMARY }}>SL</span></div>
+                    <div style={{ width:100, flexShrink:0, padding:'6px 8px', textAlign:'right' }}><span style={{ fontSize:13, fontWeight:600, color:C_TEXT_PRIMARY }}>Giá bán</span></div>
+                    <div style={{ width:120, flexShrink:0, padding:'6px 8px', textAlign:'right' }}><span style={{ fontSize:13, fontWeight:600, color:C_TEXT_PRIMARY }}>KL / KT (D×R×C)</span></div>
+                    <div style={{ width:30, flexShrink:0 }}></div>
+                  </div>
+                  
+                  {productLines.map((line, idx) => (
+                    <div key={line.id} style={{ display:'flex', alignItems:'stretch', borderTop: idx > 0 ? `1px solid ${C_BORDER}` : 'none' }}>
+                      <div style={{ flex:1, padding:6 }}>
+                        <div className="field-input" style={{ height:34 }}>
+                          <input value={line.name} onChange={e => updateProductLine(line.id, 'name', e.target.value)} placeholder={`Sản phẩm ${idx+1}`} />
+                        </div>
+                      </div>
+                      <div style={{ width:50, flexShrink:0, padding:6 }}>
+                        <div className="field-input" style={{ height:34, padding:'0 4px' }}>
+                          <input type="number" min={1} value={line.qty} onChange={e => updateProductLine(line.id, 'qty', Math.max(1, parseInt(e.target.value)||1))} style={{ textAlign:'center', width:'100%' }} />
+                        </div>
+                      </div>
+                      <div style={{ width:100, flexShrink:0, padding:6 }}>
+                        <div className="field-input" style={{ height:34 }}>
+                          <input type="number" min={0} value={line.price} onChange={e => updateProductLine(line.id, 'price', parseFloat(e.target.value)||0)} style={{ textAlign:'right', width:'100%' }} />
+                        </div>
+                      </div>
+                      <div style={{ width:120, flexShrink:0, padding:6, display:'flex', flexDirection:'column', gap:4 }}>
+                        <div className="field-input" style={{ height:26 }}>
+                          <input type="number" min={0.1} step={0.1} value={line.weight} onChange={e => updateProductLine(line.id, 'weight', parseFloat(e.target.value)||0)} style={{ textAlign:'right', width:'100%', fontSize:12 }} />
+                          <span style={{ fontSize:11, color:'#9CA3AF', paddingRight:4 }}>kg</span>
+                        </div>
+                        <div style={{ display:'flex', gap:2 }}>
+                          {['dimD','dimR','dimC'].map(d => (
+                             <input key={d} type="number" value={line[d]} onChange={e => updateProductLine(line.id, d, parseFloat(e.target.value)||0)} 
+                               style={{ width:'33%', height:22, border:`1px solid ${C_BORDER}`, borderRadius:4, textAlign:'center', fontSize:11, outline:'none', padding:0 }} />
+                          ))}
+                        </div>
+                      </div>
+                      <div style={{ width:30, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                        <button onClick={() => productLines.length > 1 && removeProductLine(line.id)} disabled={productLines.length <= 1}
+                          style={{ border:'none', background:'transparent', color:'#9CA3AF', cursor: productLines.length>1?'pointer':'default', fontSize:16 }}>×</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button onClick={addProductLine} style={{ marginTop:8, fontSize:13, color:C_LINK, border:'none', background:'none', cursor:'pointer', fontWeight:600 }}>
+                  + Thêm sản phẩm
+                </button>
+              </div>
+              <div style={{ height:1, background:C_BORDER, flexShrink:0 }} />
+              <div style={{ display:'flex', flexDirection:'column', gap:6, padding:'8px 12px' }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                  <span style={{ fontSize:13, color:C_TEXT_SECONDARY }}>Tổng khối lượng</span>
+                  <span style={{ fontSize:14, fontWeight:600, color:C_TEXT_PRIMARY }}>{totalWeight.toFixed(2)} kg</span>
+                </div>
+                <div style={{ textAlign:'right', fontSize:12, color:C_TEXT_SECONDARY }}>
+                  Khối lượng quy đổi: <strong>{totalConvertedWt.toFixed(2)} kg</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── RIGHT ── */}
+          <div style={{ width:400, flexShrink:0, height:'100%', display:'flex', flexDirection:'column', gap:6, overflowY:'auto' }}>
+
+            {/* Thông tin đơn hàng */}
+            <div className="drawer-card" style={{ flex:'0 0 auto' }}>
+              <CardHdr icon={<Ic.Clipboard />} label="Thông tin đơn hàng"
+                right={<span style={{ fontSize:12, color:C_TEXT_SECONDARY, whiteSpace:'nowrap' }}>Tạo lúc {createdAt}</span>} />
+              <div style={{ display:'flex', flexDirection:'column', gap:4, padding:'8px 12px' }}>
+                <InfoRow label="Mã đơn shop">
+                  <div className="field-input" style={{ width:175, flexShrink:0 }}>
+                    <input value={shopCode} onChange={e => setShopCode(e.target.value)} placeholder="Mã đơn shop" style={{ color:'#9CA3AF' }} />
+                  </div>
+                </InfoRow>
+                <InfoRow label="COD">
+                  <NumInput value={cod} onChange={setCod} unit="đ" width={175} />
+                </InfoRow>
+                <InfoRow label="Giảm giá">
+                  <NumInput value={discount} onChange={setDiscount} unit="đ" width={175} />
+                </InfoRow>
+                <InfoRow label="Thu ship khách hàng" hint>
+                  <NumInput value={shipCollect} onChange={setShipCollect} unit="đ" width={175} />
+                </InfoRow>
+                <InfoRow label="Giá trị hàng">
+                  <NumInput value={goodsValue} onChange={setGoodsValue} unit="đ" width={175} />
+                </InfoRow>
+                <div style={{ display:'flex', alignItems:'center', gap:8, paddingTop:4 }}>
+                  <CbBlue checked={declareValue} onChange={() => setDeclareValue(!declareValue)} />
+                  <span style={{ fontSize:14, color:C_TEXT_PRIMARY }}>Khai giá trị hàng</span>
+                </div>
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <CbBlue checked={partialDeliver} onChange={() => setPartialDeliver(!partialDeliver)} />
+                  <span style={{ fontSize:14, color:C_TEXT_PRIMARY }}>Giao / Trả 1 phần</span>
+                </div>
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <CbBlue checked={collectOnFail} onChange={() => setCollectOnFail(!collectOnFail)} />
+                  <div style={{ flex:1, display:'flex', alignItems:'center', gap:6 }}>
+                    <span style={{ fontSize:14, color:C_TEXT_PRIMARY }}>Giao thất bại thu tiền</span>
+                    <Ic.Help />
+                  </div>
+                  <NumInput value={collectAmt} onChange={setCollectAmt} unit="đ" width={175} />
+                </div>
+              </div>
+              <div style={{ height:1, background:C_BORDER }} />
+              <div style={{ padding:'8px 12px', display:'flex', flexDirection:'column', gap:4 }}>
+                {[
+                  { label:'Ghi chú nội bộ',    link:'Thêm ghi chú' },
+                  { label:'Ghi chú đơn hàng',   link:'Thêm ghi chú' },
+                  { label:'Ghi chú xem hàng',   link:'Cho xem hàng không thử' },
+                  { label:'Thanh toán',          link:'Tiền mặt (Thu hộ COD)' },
+                  { label:'Nguồn tạo',           link:'Facebook' },
+                ].map(({ label, link }) => (
+                  <div key={label} style={{ display:'flex', alignItems:'center', gap:8, padding:'1px 0' }}>
+                    <span style={{ fontSize:13, color:C_TEXT_PRIMARY, flexShrink:0 }}>{label}</span>
+                    <span style={{ fontSize:13, color:C_LINK, cursor:'pointer', whiteSpace:'nowrap' }}>{link}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Phí vận chuyển */}
+            <div className="drawer-card">
+              <CardHdr icon={<Ic.Truck />} label="Phí vận chuyển"
+                right={
+                  <div className="toggle-group">
+                    {[['sender','Shop trả ship'], ['receiver','Khách trả ship']].map(([p, lbl]) => (
+                      <button key={p} onClick={() => setFeePayer(p)} className={`toggle-btn ${feePayer===p?'on':''}`}>{lbl}</button>
+                    ))}
+                  </div>
+                }
+              />
+              <div style={{ display:'flex', flexDirection:'column', gap:6, padding:'10px 12px' }}>
+
+                {/* 2 service cards */}
+                {SERVICES.map(svc => {
+                  const sel = serviceType === (svc.id === 'SV_LIGHT' ? 'light' : 'heavy')
+                  const demoFee = svc.id === 'SV_LIGHT' ? feeShipping : feeShipping + 15000
+                  return (
+                    <div key={svc.id} className={`service-card ${sel ? 'selected' : ''}`}
+                      onClick={() => setServiceType(svc.id === 'SV_LIGHT' ? 'light' : 'heavy')}>
+                      <RadioDot on={sel} />
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:11, color:C_TEXT_SECONDARY }}>Dịch vụ</div>
+                        <div style={{ fontSize:14, fontWeight:600, color:C_TEXT_PRIMARY }}>{svc.icon} {svc.name}</div>
+                        <div style={{ fontSize:11, color:C_TEXT_SECONDARY, marginTop:1 }}>{svc.desc}</div>
+                      </div>
+                      <span style={{ fontSize:12, color:C_TEXT_SECONDARY, flexShrink:0 }}>Phí ship:</span>
+                      <span style={{ fontSize:14, fontWeight:700, color:C_TEXT_PRIMARY, flexShrink:0, whiteSpace:'nowrap' }}>
+                        {fmtVND(demoFee)}đ
+                      </span>
+                    </div>
+                  )
+                })}
+
+                {/* Packaging options – chỉ hiện khi chọn Hàng nặng */}
+                {serviceType === 'heavy' && (
+                  <div style={{ background:'#F8FAFC', border:'1px solid #E5E7EB', borderRadius:10, padding:'12px 14px', marginTop:2 }}>
+
+                    {/* Packaging mode selector */}
+                    <div style={{ fontSize:12, fontWeight:700, color:'#374151', marginBottom:8 }}>Chế độ đóng gói</div>
+                    {[
+                      { id:'gop',      label:'Gộp kiện',                  sub: 'Tất cả sản phẩm → 1 kiện' },
+                      { id:'tach_sl',  label:'Tách theo số lượng',      sub: 'Mỗi đơn vị sản phẩm = 1 kiện' },
+                      { id:'tach_dong',label:'Tách theo dòng sản phẩm', sub: 'Mỗi dòng sản phẩm = 1 kiện' },
+                    ].map(opt => (
+                      <div key={opt.id}
+                        onClick={() => setPackagingMode(opt.id)}
+                        style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 0', cursor:'pointer', borderBottom:'1px solid #F3F4F6' }}>
+                        <RadioDot on={packagingMode === opt.id} />
+                        <div>
+                          <div style={{ fontSize:13, fontWeight:600, color:'#111827' }}>{opt.label}</div>
+                          <div style={{ fontSize:11, color:C_TEXT_SECONDARY }}>{opt.sub}</div>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Summary */}
+                    <div style={{ marginTop:10, padding:'8px 10px', background:'#EFF6FF', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                      <span style={{ fontSize:12, color:'#1D4ED8' }}>Tổng KL: <strong>{totalWeight.toFixed(1)} kg</strong></span>
+                      <span style={{ fontSize:12, color:'#1D4ED8' }}>Số kiện: <strong style={{ fontSize:14 }}>{packageCount} kiện</strong></span>
+                    </div>
+                  </div>
+                )}
+
+              </div>
+            </div>
+
+            {/* Phụ phí */}
+            <div className="drawer-card">
+              <div style={{ padding:'10px 12px', fontWeight:700, fontSize:14, color:C_TEXT_PRIMARY }}>Phụ phí</div>
+              <div style={{ height:1, background:C_BORDER }} />
+              <div style={{ padding:'4px 0' }}>
+                {[
+                  { label:'Phí bảo hiểm (khai giá)',   value:feeInsurance, active: declareValue && goodsValue > 0 },
+                  { label:'Phí giao trả 1 phần',        value:feePartial,   active: partialDeliver },
+                  { label:'Phí giao thất bại thu tiền', value:feeDelivFail, active: collectOnFail },
+                  { label:'Phí thu hộ',                 value:feeCod,       active: cod > 0 },
+                ].map(({ label, value, active }) => (
+                  <div key={label} style={{ display:'flex', alignItems:'center', padding:'5px 12px' }}>
+                    <span style={{ flex:1, fontSize:13, color:C_TEXT_SECONDARY }}>{label}</span>
+                    <span style={{ fontSize:13, fontWeight:600, color: active && value > 0 ? C_TEXT_PRIMARY : C_TEXT_SECONDARY }}>
+                      {(active ? value : 0).toLocaleString('vi-VN')}đ
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Summary + Actions */}
+            <div className="drawer-card">
+              <div style={{ background:'#F9FAFB', margin:10, borderRadius:8, padding:12, display:'flex', flexDirection:'column', gap:8 }}>
+                <div style={{ display:'flex', alignItems:'center' }}>
+                  <span style={{ flex:1, fontSize:13, color:C_TEXT_SECONDARY }}>Tổng phí vận chuyển</span>
+                  <span style={{ fontSize:14, fontWeight:600, color:C_TEXT_PRIMARY }}>{fmtVND(totalShipping)}đ</span>
+                </div>
+                <div style={{ display:'flex', alignItems:'center' }}>
+                  <span style={{ flex:1, fontSize:13, color:C_TEXT_SECONDARY }}>Tổng thu khách hàng</span>
+                  <span style={{ fontSize:16, fontWeight:700, color:'#EF4444' }}>{fmtVND(totalCollect)}đ</span>
+                </div>
+              </div>
+              <div style={{ display:'flex', gap:8, padding:'0 10px 10px' }}>
+                <button className="btn-outline" style={{ flex:1 }} onClick={onClose}>Lưu nháp</button>
+                <button className="btn-outline" style={{ flex:2, justifyContent:'center', opacity: creating?0.6:1 }} onClick={handleCreate} disabled={creating}>
+            {creating ? '⏳ Đang tạo...' : '✓ Lên đơn'}
+          </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ─────────────────────────────────────────────
+// PAGINATION
+// ─────────────────────────────────────────────
+function Pagination({ page, total, pageSize, onPageChange, onPageSizeChange }) {
+  const [goTo, setGoTo] = useState(String(page))
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+
+  const pages = []
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i)
+  } else {
+    pages.push(1, 2, '...', totalPages - 1, totalPages)
+  }
+
+  return (
+    <div style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 16px', background:'#fff', flexShrink:0, borderTop:`1px solid ${C_BORDER}` }}>
+      <span style={{ fontSize:13, color:C_TEXT_PRIMARY, flexShrink:0 }}>Hiển thị</span>
+      <div style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 10px', border:`1px solid ${C_BORDER}`, borderRadius:6, cursor:'pointer', flexShrink:0, minWidth:70 }}
+        onClick={() => onPageSizeChange(pageSize === 50 ? 100 : 50)}>
+        <span style={{ flex:1, fontSize:13, color:C_TEXT_PRIMARY }}>{pageSize}</span>
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M5 7.5l5 5 5-5" stroke="#4B5563" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+      </div>
+      <span style={{ fontSize:13, color:C_TEXT_PRIMARY }}>mỗi trang</span>
+      <div style={{ flex:1 }} />
+      <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+        <div className="page-btn" onClick={() => onPageChange(Math.max(1, page-1))}><Ic.ChevLeft /></div>
+        {pages.map((p, i) =>
+          p === '...' ? <span key={i} style={{ fontSize:13, color:C_TEXT_PRIMARY, padding:'0 4px' }}>...</span>
+          : <div key={i} className={`page-btn ${p===page?'active-page':''}`} onClick={() => onPageChange(p)}>{p}</div>
+        )}
+        <div className="page-btn" onClick={() => onPageChange(Math.min(totalPages, page+1))}><Ic.ChevRight /></div>
+      </div>
+      <span style={{ fontSize:13, color:C_TEXT_PRIMARY, flexShrink:0 }}>Đi đến trang số</span>
+      <div style={{ border:`1px solid ${C_BORDER}`, borderRadius:6, width:46, padding:'5px 8px' }}>
+        <input value={goTo} onChange={e => setGoTo(e.target.value)}
+          onKeyDown={e => { if (e.key==='Enter') { const n=parseInt(goTo); if(!isNaN(n)&&n>=1&&n<=totalPages) onPageChange(n) } }}
+          style={{ width:'100%', border:'none', outline:'none', textAlign:'center', fontSize:13, color:C_TEXT_PRIMARY, background:'transparent', fontFamily:'Inter,sans-serif' }} />
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────
+// TABLE ROW
+// ─────────────────────────────────────────────
+function TRow({ order, checked, onToggle, onCancel, onPrint, onClick }) {
+  const [hover, setHover] = useState(false)
+  const products = orderProducts[order.id] || ['Sản phẩm - SL: 1']
+  const shop = shopMap[order.shopId]
+  const sc = getStatusColor(order.status)
+
+  return (
+    <div
+      className="row-hover"
+      style={{ display:'flex', alignItems:'stretch', cursor:'pointer', background: checked ? '#FFF4ED' : '#fff', borderBottom:`1px solid ${C_BORDER}` }}
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+      onClick={() => onClick && onClick(order)}
+    >
+      {/* CB */}
+      <div style={{ width:40, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', padding:'8px' }} onClick={e => e.stopPropagation()}>
+        <CbOrange checked={checked} onChange={onToggle} />
+      </div>
+      {/* Mã đơn */}
+      <div style={{ width:148, flexShrink:0, display:'flex', flexDirection:'column', justifyContent:'center', padding:'8px' }}>
+        <span style={{ fontSize:13, fontWeight:700, color:C_LINK }}>{order.trackingCode}</span>
+        <span className="status-badge" style={{ background:sc.bg, color:sc.color, marginTop:4, width:'fit-content' }}>{getStatusLabel(order.status)}</span>
+      </div>
+      {/* Shop */}
+      <div style={{ flex:'1 0 0', minWidth:180, padding:'8px', display:'flex', alignItems:'center' }}>
+        <span style={{ fontSize:13, color:'#111827', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+          {shop?.name ?? order.shopId}
+        </span>
+      </div>
+      {/* Khách hàng */}
+      <div style={{ flex:'1 0 0', minWidth:220, padding:'8px', display:'flex', flexDirection:'column', justifyContent:'center', gap:2 }}>
+        <span style={{ fontSize:13, color:'#111827', fontWeight:500 }}>{order.receiverName}</span>
+        <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+          <span style={{ fontSize:12, color:C_TEXT_SECONDARY }}>{order.receiverPhone}</span>
+          <div className="tlhh-badge">TLHH:0%</div>
+        </div>
+        <span style={{ fontSize:12, color:C_TEXT_SECONDARY, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{order.receiverAddress}</span>
+      </div>
+      {/* Sản phẩm */}
+      <div style={{ flex:'1 0 0', minWidth:200, padding:'8px', display:'flex', flexDirection:'column', justifyContent:'center', gap:2 }}>
+        {products.map((p, i) => (
+          <span key={i} style={{ fontSize:12, color:C_TEXT_SECONDARY, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p}</span>
+        ))}
+      </div>
+      {/* KL */}
+      <div style={{ width:110, flexShrink:0, padding:'8px', display:'flex', alignItems:'center', justifyContent:'flex-end' }}>
+        <span style={{ fontSize:13, color:'#111827' }}>{fmtKg(order.weight)}</span>
+      </div>
+      {/* COD */}
+      <div style={{ width:120, flexShrink:0, padding:'8px', display:'flex', alignItems:'center', justifyContent:'flex-end' }}>
+        <span style={{ fontSize:13, color:'#111827', fontWeight: order.cod > 0 ? 600 : 400 }}>
+          {order.cod > 0 ? fmtVND(order.cod) : '–'}
+        </span>
+      </div>
+      {/* Phí ship */}
+      <div style={{ width:120, flexShrink:0, padding:'8px', display:'flex', alignItems:'center', justifyContent:'flex-end' }}>
+        <span style={{ fontSize:13, color:'#111827' }}>{fmtVND(order.shippingFee)}</span>
+      </div>
+      {/* GTB - TT */}
+      <div style={{ width:130, flexShrink:0, padding:'8px', display:'flex', flexDirection:'column', alignItems:'flex-end', justifyContent:'center' }}>
+        <span style={{ fontSize:12, color:C_TEXT_SECONDARY }}>{fmtVND(order.cod + order.shippingFee)}</span>
+        <span style={{ fontSize:11, color:C_TEXT_SECONDARY, marginTop:2 }}>
+          {parseInt(order.id.replace('ORD','')) % 2 === 0 ? 'Shop trả' : 'Khách trả'}
+        </span>
+      </div>
+      {/* Người tạo */}
+      <div style={{ width:140, flexShrink:0, padding:'8px', display:'flex', alignItems:'center' }}>
+        <span style={{ fontSize:13, color:C_TEXT_SECONDARY }}>{order.createdBy}</span>
+      </div>
+      {/* Thao tác */}
+      <div style={{ width:100, flexShrink:0, padding:'8px', display:'flex', gap:6, alignItems:'center', justifyContent:'center' }}>
+        <button onClick={(e) => { e.stopPropagation(); onPrint() }} style={{ padding:'4px 6px', border:'none', borderRadius:4, background:'#F3F4F6', cursor:'pointer' }} title="In mã vận đơn">🖨️</button>
+        {['pending','pickup'].includes(order.status) && (
+          <button onClick={(e) => { e.stopPropagation(); onCancel() }} style={{ padding:'4px 6px', border:'none', borderRadius:4, background:'#FEE2E2', cursor:'pointer' }} title="Huỷ đơn">❌</button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function THead({ allChecked, onToggleAll }) {
+  const cell = (label, width, align='left', flex=false) => (
+    <div style={{ ...(flex ? { flex:'1 0 0', minWidth:width } : { width, flexShrink:0 }), padding:'8px', background:C_BG_HEADER, display:'flex', alignItems:'center' }}>
+      <span style={{ flex:1, fontSize:12, fontWeight:600, color:C_TEXT_SECONDARY, textAlign:align }}>{label}</span>
+    </div>
+  )
+  return (
+    <div style={{ display:'flex', alignItems:'stretch', background:C_BG_HEADER, position:'sticky', top:0, zIndex:10 }}>
+      <div style={{ width:40, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', padding:'8px', background:C_BG_HEADER }}>
+        <CbOrange checked={allChecked} onChange={onToggleAll} />
+      </div>
+      {cell('Mã đơn hàng', 148)}
+      {cell('Shop', 180, 'left', true)}
+      {cell('Khách hàng', 220, 'left', true)}
+      {cell('Sản phẩm', 200, 'left', true)}
+      {cell('Khối lượng (kg)', 110, 'right')}
+      {cell('COD (đ)', 120, 'right')}
+      {cell('Phí ship (đ)', 120, 'right')}
+      {cell('GTB - TT (đ)', 130, 'right')}
+      {cell('Người tạo', 140)}
+      {cell('Thao tác', 100, 'center')}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────
+// SIDEBAR
+// ─────────────────────────────────────────────
+function Sidebar({ activePage, onNavigate, session, onLogout }) {
+  const isAdmin = session?.role === 'super_admin'
+  return (
+    <div className="sidebar">
+      {/* Logo */}
+      <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', marginBottom:8 }}>
+        <div style={{ width:28, height:28, background:'#FF5200', borderRadius:6, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <span style={{ color:'#fff', fontWeight:800, fontSize:13 }}>G</span>
+        </div>
+        <span style={{ fontWeight:800, fontSize:14, color:'#111827', letterSpacing:'-0.02em' }}>POS của tao</span>
+      </div>
+
+      <a className={`nav-item ${activePage==='orders'?'active':''}`} onClick={() => onNavigate('orders')}><Ic.Orders />Đơn hàng</a>
+
+      {isAdmin && (
+        <a className={`nav-item ${activePage==='sellers'?'active':''}`} onClick={() => onNavigate('sellers')}
+          style={{ marginTop:2 }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+          </svg>
+          Nhà bán hàng
+        </a>
+      )}
+
+      {!isAdmin && (
+        <a className={`nav-item ${activePage==='ghn-connect'?'active':''}`} onClick={() => onNavigate('ghn-connect')}
+          style={{ marginTop:2 }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/>
+            <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>
+          </svg>
+          Kết nối GHN
+        </a>
+      )}
+
+      <div style={{ flex:1 }} />
+
+      {/* Role badge */}
+      <div style={{ margin:'0 8px 6px', background: isAdmin?'#FFF0E9':'#EFF6FF', borderRadius:6, padding:'6px 10px' }}>
+        <div style={{ fontSize:10, fontWeight:700, color: isAdmin?'#FF5200':'#2563EB', textTransform:'uppercase' }}>
+          {isAdmin ? '👑 Super Admin' : '🏪 Nhà bán hàng'}
+        </div>
+        <div style={{ fontSize:11, color:'#374151', marginTop:1 }}>{session?.sellerName || 'Admin'}</div>
+      </div>
+
+      <a className="nav-item" style={{ color:'#EF4444' }} onClick={onLogout}>
+        <Ic.Logout />Đăng xuất
+      </a>
+      <div style={{ fontSize:11, color:'#9CA3AF', padding:'4px 12px' }}>v1.0.0</div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────
+// TOP BAR
+// ─────────────────────────────────────────────
+function TopBar({ session }) {
+  const initials = (session?.sellerName || 'Admin').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase()
+  const isAdmin  = session?.role === 'super_admin'
+  return (
+    <div style={{ height:44, background:'#fff', borderBottom:`1px solid ${C_BORDER}`, display:'flex', alignItems:'center', justifyContent:'flex-end', padding:'0 16px', gap:12, flexShrink:0 }}>
+      <div style={{ marginRight:'auto', display:'flex', alignItems:'center', gap:6 }}>
+        <div style={{ fontSize:11, fontWeight:600, padding:'3px 8px', borderRadius:20,
+          background: isAdmin?'#FFF0E9':'#EFF6FF', color: isAdmin?'#FF5200':'#2563EB' }}>
+          {isAdmin ? '👑 Super Admin' : '🏪 Seller'}
+        </div>
+        <span style={{ fontSize:13, color:'#6B7280' }}>{session?.sellerName || 'Admin'}</span>
+      </div>
+      <div style={{ display:'flex', alignItems:'center', gap:6, cursor:'pointer' }}>
+        <div style={{ width:30, height:30, borderRadius:'50%', background: isAdmin?C_ACTION:'#3B82F6', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <span style={{ color:'#fff', fontWeight:800, fontSize:12 }}>{initials}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────
+// ORDER DETAIL DRAWER
+// ─────────────────────────────────────────────
+function OrderDetailDrawer({ order, onClose }) {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (order && order.trackingCode && order.trackingCode.length > 3) {
+      setLoading(true)
+      setError('')
+      const session = getSession()
+      const sId = session?.role === 'super_admin' ? (order.shopId || '') : session?.sellerId
+      apiFetch(`/api/orders/${order.trackingCode}?seller_id=${sId}`)
+        .then(r => {
+          if (r.ok && r.data) setData(r.data)
+          else setError(r.error || 'Lỗi tải chi tiết đơn')
+        })
+        .finally(() => setLoading(false))
+    } else {
+      setData(null)
+      setError('')
+    }
+  }, [order])
+
+  return (
+    <>
+      <div className={`drawer-overlay ${order ? 'open' : ''}`} onClick={onClose} />
+      <div className={`drawer ${order ? 'open' : ''}`} style={{ width: 450, display:'flex', flexDirection:'column' }}>
+        <div className="drawer-header" style={{ flexShrink:0 }}>
+          <div style={{ fontSize:18, fontWeight:700 }}>Chi tiết đơn hàng</div>
+          <button onClick={onClose} style={{ background:'none', border:'none', fontSize:20, cursor:'pointer' }}>×</button>
+        </div>
+        <div className="drawer-content" style={{ flex:1, overflowY:'auto', background:'#F3F4F6', padding:0 }}>
+          {order && (
+            <div style={{ padding:16, display:'flex', flexDirection:'column', gap:16 }}>
+              <div className="drawer-card" style={{ padding:16 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:12 }}>
+                  <span style={{ fontSize:13, color:C_TEXT_SECONDARY }}>Mã đơn GHN</span>
+                  <span style={{ fontSize:14, fontWeight:700, color:C_LINK }}>{order.trackingCode}</span>
+                </div>
+                <div style={{ display:'flex', justifyContent:'space-between' }}>
+                  <span style={{ fontSize:13, color:C_TEXT_SECONDARY }}>Trạng thái</span>
+                  <span className="status-badge" style={{ background:getStatusColor(order.status).bg, color:getStatusColor(order.status).color }}>{getStatusLabel(order.status)}</span>
+                </div>
+              </div>
+
+              <div className="drawer-card" style={{ padding:16 }}>
+                <div style={{ fontSize:14, fontWeight:600, marginBottom:12, color:C_TEXT_PRIMARY }}>Hành trình giao hàng</div>
+                {loading && <div style={{ fontSize:13, color:C_TEXT_SECONDARY, textAlign:'center', padding:20 }}>Đang tải dữ liệu từ GHN...</div>}
+                {error && <div style={{ fontSize:13, color:'#DC2626', textAlign:'center', padding:20 }}>{error}</div>}
+                
+                {!loading && !error && data && (data.data?.log || data.log) && (data.data?.log || data.log).length > 0 && (() => {
+                  const logs = data.data?.log || data.log
+                  return (
+                    <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
+                      {[...logs].reverse().map((l, i) => (
+                        <div key={i} style={{ display:'flex', gap:12 }}>
+                          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', marginTop:4 }}>
+                            <div style={{ width:10, height:10, borderRadius:'50%', background: i===0?'#10B981':'#D1D5DB', flexShrink:0 }} />
+                            {i < logs.length - 1 && <div style={{ width:2, flex:1, background:'#E5E7EB', margin:'4px 0', minHeight:20 }} />}
+                          </div>
+                          <div style={{ flex:1, paddingBottom: i < logs.length - 1 ? 16 : 0 }}>
+                            <div style={{ fontSize:13, fontWeight: i===0?600:400, color: i===0?'#111827':'#4B5563' }}>{l.status}</div>
+                            <div style={{ fontSize:12, color:'#9CA3AF', marginTop:2 }}>{new Date(l.updated_date).toLocaleString('vi-VN')}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })()}
+
+                {!loading && !error && !data && (
+                  <div style={{ fontSize:13, color:C_TEXT_SECONDARY, textAlign:'center', padding:20 }}>
+                    Đơn hàng này chưa được đồng bộ với GHN.
+                  </div>
+                )}
+                {!loading && !error && data && (!(data.data?.log || data.log) || (data.data?.log || data.log).length === 0) && (
+                  <div style={{ fontSize:13, color:C_TEXT_SECONDARY, textAlign:'center', padding:20 }}>
+                    Chưa có lịch sử cập nhật hành trình.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ─────────────────────────────────────────────
+// AGENCY ORDERS PAGE
+// ─────────────────────────────────────────────
+function AgencyOrdersPage({ session }) {
+  // Filter orders by seller if role=seller
+  const baseOrders = useMemo(() => {
+    if (!session || session.role === 'super_admin') return ORDERS_BASE
+    const sellerShop = SHOPS.find(s => s.sellerId === session.sellerId)
+    return ORDERS_BASE.filter(o => o.shopId === sellerShop?.id)
+  }, [session])
+
+  const [orders, setOrders]           = useState(baseOrders)
+  const [activeTab, setActiveTab]     = useState('draft')
+  const [search, setSearch]           = useState('')
+  const [shopFilter, setShopFilter]   = useState('all')
+  const [selected, setSelected]       = useState(new Set())
+  const [page, setPage]               = useState(1)
+  const [pageSize, setPageSize]       = useState(50)
+  const [drawerOpen, setDrawerOpen]   = useState(false)
+  const [detailOrder, setDetailOrder] = useState(null)
+
+  useEffect(() => {
+    if (session) {
+      const sId = session.role === 'super_admin' ? '' : session.sellerId;
+      apiFetch(`/api/orders${sId ? '?seller_id='+sId : ''}`)
+        .then(r => {
+          if (r.ok && r.data && r.data.orders) {
+            const mapped = r.data.orders.map(o => {
+              let productStr = 'Hàng hoá'
+              try {
+                if (o.ghn_response) {
+                  const ghnData = JSON.parse(o.ghn_response)
+                  if (ghnData.items && ghnData.items.length > 0) {
+                    productStr = ghnData.items.map(i => `${i.name} - SL: ${i.quantity}`).join(', ')
+                  }
+                }
+              } catch(e) {}
+              orderProducts[o.client_code] = [productStr]
+
+              return {
+                id: o.client_code,
+                shopId: o.seller_id,
+                trackingCode: o.order_code || o.client_code,
+                status: o.status,
+                weight: o.weight,
+                receiverName: o.receiver_name,
+                receiverPhone: o.receiver_phone,
+                receiverAddress: o.receiver_address,
+                cod: o.cod_amount,
+                shippingFee: o.shipping_fee,
+                createdBy: 'System'
+              }
+            })
+            setOrders(prev => {
+              const prevIds = new Set(prev.map(x=>x.id))
+              const newOrders = mapped.filter(x => !prevIds.has(x.id))
+              return [...newOrders, ...prev]
+            })
+          }
+        })
+    }
+  }, [session])
+
+  const ordersByTab = useMemo(() => ({
+    draft:        orders.filter(o => o.status === 'pending'),
+    pickup:       orders.filter(o => o.status === 'pickup'),
+    in_transit:   orders.filter(o => o.status === 'in_transit'),
+    returning:    orders.filter(o => o.status === 'returning'),
+    redelivery:   orders.filter(o => o.status === 'redelivery'),
+    completed:    orders.filter(o => o.status === 'delivered'),
+    cancelled:    orders.filter(o => ['cancelled','failed'].includes(o.status)),
+    lost_damaged: orders.filter(o => ['lost','damaged'].includes(o.status)),
+  }), [orders])
+
+  const tabOrders   = ordersByTab[activeTab] ?? orders
+  const shopFiltered = shopFilter === 'all' ? tabOrders : tabOrders.filter(o => o.shopId === shopFilter)
+  const filtered    = shopFiltered.filter(o =>
+    o.trackingCode.toLowerCase().includes(search.toLowerCase()) ||
+    o.receiverName.toLowerCase().includes(search.toLowerCase())
+  )
+  const paginated   = filtered.slice((page-1)*pageSize, page*pageSize)
+  const allChecked  = paginated.length > 0 && paginated.every(o => selected.has(o.id))
+
+  const toggleAll = () => {
+    const next = new Set(selected)
+    if (allChecked) paginated.forEach(o => next.delete(o.id))
+    else            paginated.forEach(o => next.add(o.id))
+    setSelected(next)
+  }
+  const toggleOne = (id) => {
+    const next = new Set(selected); next.has(id) ? next.delete(id) : next.add(id); setSelected(next)
+  }
+
+  const handleCreated = (newOrder, productStr) => {
+    orderProducts[newOrder.id] = [productStr]
+    setOrders(prev => [newOrder, ...prev])
+    setActiveTab(newOrder.status === 'pickup' ? 'pickup' : 'draft')
+    setPage(1)
+  }
+
+  const handleCancel = (ids) => {
+    if (!confirm(`Bạn có chắc chắn huỷ ${ids.length} đơn hàng này không?`)) return
+    // Try real backend
+    const session = getSession()
+    const sellerId = session?.sellerId
+    const ghnCodes = orders.filter(o => ids.includes(o.id) && o.trackingCode).map(o => o.trackingCode)
+    if (BACKEND_ONLINE && sellerId && ghnCodes.length > 0) {
+      apiFetch('/api/orders/cancel', { method:'POST', body: JSON.stringify({ seller_id: sellerId, order_codes: ghnCodes }) })
+        .then(r => { if (!r.ok) alert('GHN: ' + r.error) })
+    }
+    setOrders(prev => prev.map(o => ids.includes(o.id) ? { ...o, status: 'cancelled' } : o))
+    setSelected(new Set())
+  }
+
+  const handlePrint = (ids) => {
+    const session = getSession()
+    const sellerId = session?.sellerId
+    const ghnCodes = orders.filter(o => ids.includes(o.id) && o.trackingCode?.length > 3).map(o => o.trackingCode)
+    if (BACKEND_ONLINE && sellerId && ghnCodes.length > 0) {
+      apiFetch('/api/orders/print-label', { method:'POST', body: JSON.stringify({ seller_id: sellerId, order_codes: ghnCodes }) })
+        .then(r => {
+          if (r.ok && r.data.print_url) {
+            window.open(r.data.print_url, '_blank')
+          } else {
+            alert(`Đang tạo file PDF in tem cho ${ids.length} đơn...`)
+          }
+        })
+    } else {
+      alert(`Đang tạo file PDF in tem cho ${ids.length} đơn hàng...`)
+    }
+    setSelected(new Set())
+  }
+
+  const TABS = [
+    { key:'draft',        label:'Đơn nháp',                     count:ordersByTab.draft.length,        cc:'#D97706' },
+    { key:'pickup',       label:'Chờ bàn giao',                 count:ordersByTab.pickup.length,       cc:'#2563EB' },
+    { key:'in_transit',   label:'Đã bàn giao - Đang giao',      count:ordersByTab.in_transit.length,   cc:'#2563EB' },
+    { key:'returning',    label:'Đã bàn giao - Đang hoàn hàng', count:ordersByTab.returning.length,    cc:'#D97706' },
+    { key:'redelivery',   label:'Chờ xác nhận giao lại',        count:ordersByTab.redelivery.length,   cc:'#D97706' },
+    { key:'completed',    label:'Hoàn tất',                     count:ordersByTab.completed.length,    cc:'#059669' },
+    { key:'cancelled',    label:'Đơn huỷ',                      count:ordersByTab.cancelled.length,    cc:'#DC2626' },
+    { key:'lost_damaged', label:'Hàng thất lạc - hư hỏng',     count:ordersByTab.lost_damaged.length, cc:'#DC2626' },
+  ]
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', height:'100%', background:'#fff', overflow:'hidden' }}>
+
+      {/* Page Header */}
+      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 20px', flexShrink:0 }}>
+        <div style={{ flex:'1 0 0' }}>
+          <h1 style={{ fontSize:22, fontWeight:700, color:C_TEXT_PRIMARY, margin:0 }}>Đơn hàng</h1>
+          <p style={{ fontSize:13, color:C_TEXT_SECONDARY, margin:'3px 0 0' }}>Tất cả đơn hàng từ các shop thuộc đại lý</p>
+        </div>
+        <button className="btn-orange" onClick={() => setDrawerOpen(true)}>
+          <Ic.Plus />
+          Tạo đơn hàng
+        </button>
+      </div>
+
+      {/* Tabs */}
+      <div className="tab-scroll" style={{ display:'flex', alignItems:'flex-end', padding:'0 20px', borderBottom:`1px solid ${C_BORDER}`, flexShrink:0, overflowX:'auto', gap:2 }}>
+        {TABS.map(tab => {
+          const active = activeTab === tab.key
+          return (
+            <div key={tab.key} className={`tab-btn ${active ? 'active' : ''}`}
+              onClick={() => { setActiveTab(tab.key); setPage(1); setSelected(new Set()) }}>
+              <span>{tab.label}</span>
+              <span style={{ fontSize:13, fontWeight:700, color: active ? tab.cc : '#6B7280' }}>{tab.count}</span>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Filters */}
+      <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 20px', flexShrink:0 }}>
+        <div className="search-box">
+          <Ic.Search />
+          <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
+            placeholder="Tìm theo mã đơn hoặc tên khách hàng" />
+        </div>
+        <select value={shopFilter} onChange={e => { setShopFilter(e.target.value); setPage(1) }}
+          style={{ border:`1px solid ${C_BORDER}`, borderRadius:6, padding:'7px 12px', fontSize:13, color:C_TEXT_PRIMARY, background:'#fff', cursor:'pointer', outline:'none', minWidth:190, fontFamily:'Inter,sans-serif' }}>
+          <option value="all">Tất cả shop ({agencyShops.length})</option>
+          {agencyShops.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+      </div>
+
+      {/* Selected bar */}
+      {selected.size > 0 && (
+        <div style={{ display:'flex', alignItems:'center', gap:12, padding:'7px 20px', background:'#EFF6FF', borderBottom:`1px solid #BFDBFE`, flexShrink:0 }}>
+          <span style={{ fontSize:13, color:C_LINK, fontWeight:600 }}>Đã chọn {selected.size} đơn</span>
+          <button onClick={() => setSelected(new Set())}
+            style={{ border:'none', background:'none', cursor:'pointer', fontSize:13, color:C_TEXT_SECONDARY, fontFamily:'Inter,sans-serif' }}>
+            Bỏ chọn
+          </button>
+          <div style={{ flex:1 }} />
+          <button className="btn-outline" onClick={() => handleCancel(Array.from(selected))} style={{ fontSize:13, padding:'4px 10px', color:'#DC2626', borderColor:'#FEE2E2', background:'#FEF2F2' }}>Huỷ đơn</button>
+          <button className="btn-outline" onClick={() => handlePrint(Array.from(selected))} style={{ fontSize:13, padding:'4px 10px' }}>In phiếu</button>
+          <button className="btn-outline" style={{ fontSize:13, padding:'4px 10px' }}>Xuất Excel</button>
+        </div>
+      )}
+
+      {/* Table */}
+      <div style={{ flex:'1 0 0', overflow:'hidden', padding:'0 20px' }}>
+        <div style={{ height:'100%', overflowY:'auto', overflowX:'auto' }}>
+          <div style={{ minWidth:1350 }}>
+            <THead allChecked={allChecked} onToggleAll={toggleAll} />
+            <div style={{ height:1, background:C_BORDER }} />
+            {paginated.map(order => (
+              <TRow key={order.id} order={order} checked={selected.has(order.id)} onToggle={() => toggleOne(order.id)}
+                onCancel={() => handleCancel([order.id])} onPrint={() => handlePrint([order.id])} onClick={() => setDetailOrder(order)} />
+            ))}
+            {paginated.length === 0 && (
+              <div style={{ padding:'60px 20px', textAlign:'center' }}>
+                <div style={{ marginBottom:12 }}><Ic.Package /></div>
+                <div style={{ fontSize:14, color:C_TEXT_SECONDARY }}>Không có đơn hàng nào</div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Pagination */}
+      <Pagination page={page} total={filtered.length} pageSize={pageSize}
+        onPageChange={setPage} onPageSizeChange={s => { setPageSize(s); setPage(1) }} />
+
+      <CreateOrderDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} onCreated={handleCreated} />
+      <OrderDetailDrawer order={detailOrder} onClose={() => setDetailOrder(null)} />
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────
+// GHN CONNECT PAGE (dành cho nhà bán hàng)
+// ─────────────────────────────────────────────
+function GhnConnectPage({ session }) {
+  const [status, setStatus]       = useState(null)   // { ghn_shop_id, ghn_phone, ghn_connected }
+  const [loading, setLoading]     = useState(true)
+  const [shopId, setShopId]       = useState('')
+  const [phone, setPhone]         = useState('')
+  const [otp, setOtp]             = useState('')
+  const [step, setStep]           = useState('form') // 'form' | 'otp' | 'done'
+  const [sending, setSending]     = useState(false)
+  const [verifying, setVerifying] = useState(false)
+  const [msg, setMsg]             = useState({ text:'', type:'' }) // type: 'ok' | 'err'
+
+  const sellerId = session?.sellerId
+
+  // Load current connection status
+  useEffect(() => {
+    if (!sellerId) return
+    apiFetch(`/api/ghn/connection-status?seller_id=${sellerId}`)
+      .then(r => {
+        if (r.ok) {
+          setStatus(r.data)
+          if (r.data.ghn_connected) setStep('done')
+          else {
+            if (r.data.ghn_shop_id) setShopId(String(r.data.ghn_shop_id))
+            if (r.data.ghn_phone)   setPhone(r.data.ghn_phone)
+          }
+        }
+      })
+      .finally(() => setLoading(false))
+  }, [sellerId])
+
+  const handleSendOtp = () => {
+    if (!shopId || !phone) { setMsg({ text: 'Vui lòng nhập đầy đủ GHN Shop ID và Số điện thoại.', type:'err' }); return }
+    setSending(true); setMsg({ text:'', type:'' })
+    apiFetch('/api/ghn/send-otp', {
+      method: 'POST',
+      body: JSON.stringify({ seller_id: sellerId, ghn_phone: phone, ghn_shop_id: parseInt(shopId) })
+    }).then(r => {
+      if (r.ok) { setStep('otp'); setMsg({ text: `✅ OTP đã gửi về ${phone}. Nhập OTP để hoàn tất kết nối.`, type:'ok' }) }
+      else setMsg({ text: '❌ ' + (r.error || 'Lỗi gửi OTP'), type:'err' })
+    }).finally(() => setSending(false))
+  }
+
+  const handleVerifyOtp = () => {
+    if (!otp) { setMsg({ text: 'Vui lòng nhập mã OTP.', type:'err' }); return }
+    setVerifying(true); setMsg({ text:'', type:'' })
+    apiFetch('/api/ghn/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ seller_id: sellerId, ghn_phone: phone, otp })
+    }).then(r => {
+      if (r.ok) {
+        setStep('done')
+        setStatus(prev => ({ ...prev, ghn_connected: true, ghn_shop_id: parseInt(shopId), ghn_phone: phone }))
+        setMsg({ text: '🎉 Kết nối GHN Affiliate thành công! Từ giờ đơn hàng sẽ được ghi nhận affiliate.', type:'ok' })
+      } else setMsg({ text: '❌ ' + (r.error || 'OTP không hợp lệ hoặc đã hết hạn'), type:'err' })
+    }).finally(() => setVerifying(false))
+  }
+
+  const handleReset = () => {
+    setStep('form'); setOtp(''); setMsg({ text:'', type:'' })
+  }
+
+  const C = {
+    cardBorder: '#E5E7EB', green: '#10B981', greenBg: '#D1FAE5',
+    orange: '#FF5200', orangeBg: '#FFF0E9',
+    red: '#DC2626', redBg: '#FEE2E2',
+    blue: '#2563EB', blueBg: '#EFF6FF',
+  }
+
+  if (loading) return (
+    <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center' }}>
+      <div style={{ fontSize:14, color:C_TEXT_SECONDARY }}>Đang tải...</div>
+    </div>
+  )
+
+  return (
+    <div style={{ flex:1, overflowY:'auto', padding:'32px 40px', background:'#F9FAFB' }}>
+      <div style={{ maxWidth:600 }}>
+
+        {/* Header */}
+        <div style={{ marginBottom:28 }}>
+          <h1 style={{ fontSize:22, fontWeight:700, color:C_TEXT_PRIMARY, margin:'0 0 6px' }}>Kết nối GHN Affiliate</h1>
+          <p style={{ fontSize:13, color:C_TEXT_SECONDARY, margin:0 }}>
+            Kết nối shop GHN của bạn với hệ thống POS để nhận hỗ trợ affiliate từ đại lý.
+          </p>
+        </div>
+
+        {/* Status Banner */}
+        <div style={{
+          display:'flex', alignItems:'center', gap:12, padding:'14px 16px',
+          background: status?.ghn_connected ? C.greenBg : C.orangeBg,
+          border: `1px solid ${status?.ghn_connected ? C.green : C.orange}`,
+          borderRadius:10, marginBottom:24
+        }}>
+          <div style={{ fontSize:22 }}>{status?.ghn_connected ? '✅' : '🔗'}</div>
+          <div>
+            <div style={{ fontSize:13, fontWeight:600, color: status?.ghn_connected ? C.green : C.orange }}>
+              {status?.ghn_connected ? 'Đã kết nối thành công' : 'Chưa kết nối GHN Affiliate'}
+            </div>
+            <div style={{ fontSize:12, color: C_TEXT_SECONDARY, marginTop:2 }}>
+              {status?.ghn_connected
+                ? `Shop ID: ${status.ghn_shop_id} · SĐT: ${status.ghn_phone}`
+                : 'Hoàn thành các bước bên dưới để bắt đầu nhận affiliate.'}
+            </div>
+          </div>
+        </div>
+
+        {/* Steps Guide */}
+        <div style={{ display:'flex', gap:0, marginBottom:24 }}>
+          {[
+            { n:1, label:'Nhập thông tin GHN', done: step !== 'form' || status?.ghn_connected },
+            { n:2, label:'Xác nhận OTP',       done: step === 'done' },
+            { n:3, label:'Kết nối hoàn tất',   done: step === 'done' },
+          ].map((s, i, arr) => (
+            <div key={s.n} style={{ display:'flex', alignItems:'center', flex:1 }}>
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
+                <div style={{
+                  width:28, height:28, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center',
+                  background: s.done ? C.green : (step === 'form' && s.n===1 ? C.orange : '#E5E7EB'),
+                  color: s.done || (step==='form'&&s.n===1) ? '#fff' : C_TEXT_SECONDARY,
+                  fontWeight:700, fontSize:12, flexShrink:0, transition:'all .3s'
+                }}>
+                  {s.done ? '✓' : s.n}
+                </div>
+                <span style={{ fontSize:11, color: s.done ? C.green : C_TEXT_SECONDARY, fontWeight:500, whiteSpace:'nowrap' }}>{s.label}</span>
+              </div>
+              {i < arr.length - 1 && (
+                <div style={{ flex:1, height:2, background: s.done ? C.green : '#E5E7EB', margin:'0 4px', marginBottom:20, transition:'background .3s' }} />
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Main Card */}
+        <div style={{ background:'#fff', border:`1px solid ${C.cardBorder}`, borderRadius:12, padding:24, marginBottom:16 }}>
+
+          {step === 'done' ? (
+            <div style={{ textAlign:'center', padding:'20px 0' }}>
+              <div style={{ fontSize:48, marginBottom:12 }}>🎉</div>
+              <div style={{ fontSize:16, fontWeight:700, color:C.green, marginBottom:8 }}>Kết nối thành công!</div>
+              <div style={{ fontSize:13, color:C_TEXT_SECONDARY, marginBottom:20 }}>
+                Từ giờ mọi đơn hàng bạn tạo sẽ tự động ghi nhận affiliate cho đại lý.
+              </div>
+              <div style={{ background:'#F9FAFB', borderRadius:8, padding:'12px 16px', textAlign:'left', marginBottom:16, fontSize:13 }}>
+                <div style={{ marginBottom:4 }}><strong>GHN Shop ID:</strong> {status?.ghn_shop_id}</div>
+                <div><strong>SĐT GHN:</strong> {status?.ghn_phone}</div>
+              </div>
+              <button
+                onClick={handleReset}
+                style={{ background:'none', border:`1px solid ${C.cardBorder}`, borderRadius:6, padding:'7px 16px', fontSize:13, cursor:'pointer', color:C_TEXT_SECONDARY }}
+              >
+                Kết nối lại với thông tin khác
+              </button>
+            </div>
+          ) : step === 'otp' ? (
+            <div>
+              <div style={{ fontSize:14, fontWeight:600, color:C_TEXT_PRIMARY, marginBottom:4 }}>Bước 2: Nhập mã OTP</div>
+              <div style={{ fontSize:12, color:C_TEXT_SECONDARY, marginBottom:16 }}>
+                GHN đã gửi mã OTP gồm 6 chữ số về số <strong>{phone}</strong>. Nhập mã để hoàn tất xác nhận.
+              </div>
+              <div className="field-input" style={{ marginBottom:12 }}>
+                <input
+                  value={otp} onChange={e => setOtp(e.target.value)}
+                  placeholder="Nhập mã OTP (6 chữ số)"
+                  maxLength={6}
+                  style={{ letterSpacing:6, fontSize:20, fontWeight:700, textAlign:'center' }}
+                  onKeyDown={e => e.key === 'Enter' && handleVerifyOtp()}
+                />
+              </div>
+              <div style={{ display:'flex', gap:8 }}>
+                <button
+                  onClick={handleVerifyOtp} disabled={verifying}
+                  className="btn-orange" style={{ flex:1, justifyContent:'center' }}
+                >
+                  {verifying ? 'Đang xác nhận...' : '✅ Xác nhận kết nối'}
+                </button>
+                <button
+                  onClick={() => { setStep('form'); setOtp(''); setMsg({ text:'', type:'' }) }}
+                  className="btn-outline" style={{ flexShrink:0 }}
+                >
+                  Gửi lại
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div style={{ fontSize:14, fontWeight:600, color:C_TEXT_PRIMARY, marginBottom:4 }}>Bước 1: Nhập thông tin GHN của bạn</div>
+              <div style={{ fontSize:12, color:C_TEXT_SECONDARY, marginBottom:16 }}>
+                Điền GHN Shop ID và số điện thoại đăng nhập GHN. Hệ thống sẽ gửi OTP xác nhận quyền kết nối.
+              </div>
+
+              <div style={{ marginBottom:12 }}>
+                <label style={{ fontSize:12, fontWeight:600, color:C_TEXT_SECONDARY, display:'block', marginBottom:4 }}>
+                  GHN SHOP ID <span style={{ color:'#EF4444' }}>*</span>
+                </label>
+                <div className="field-input">
+                  <input
+                    value={shopId} onChange={e => setShopId(e.target.value)}
+                    placeholder="Ví dụ: 5100001"
+                    type="number"
+                  />
+                </div>
+                <div style={{ fontSize:11, color:C_TEXT_SECONDARY, marginTop:4 }}>
+                  Tìm tại GHN Seller Portal → Cài đặt → Thông tin shop
+                </div>
+              </div>
+
+              <div style={{ marginBottom:20 }}>
+                <label style={{ fontSize:12, fontWeight:600, color:C_TEXT_SECONDARY, display:'block', marginBottom:4 }}>
+                  SỐ ĐIỆN THOẠI ĐĂNG NHẬP GHN <span style={{ color:'#EF4444' }}>*</span>
+                </label>
+                <div className="field-input">
+                  <input
+                    value={phone} onChange={e => setPhone(e.target.value)}
+                    placeholder="Ví dụ: 0901234567"
+                    onKeyDown={e => e.key === 'Enter' && handleSendOtp()}
+                  />
+                </div>
+                <div style={{ fontSize:11, color:C_TEXT_SECONDARY, marginTop:4 }}>
+                  Phải là SĐT đang đăng nhập tài khoản GHN của bạn
+                </div>
+              </div>
+
+              <button
+                onClick={handleSendOtp} disabled={sending}
+                className="btn-orange" style={{ width:'100%', justifyContent:'center' }}
+              >
+                {sending ? 'Đang gửi OTP...' : '📱 Gửi mã OTP về điện thoại'}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Message */}
+        {msg.text && (
+          <div style={{
+            padding:'12px 16px', borderRadius:8, fontSize:13,
+            background: msg.type === 'ok' ? C.greenBg : C.redBg,
+            color: msg.type === 'ok' ? C.green : C.red,
+            border: `1px solid ${msg.type === 'ok' ? C.green : C.red}`
+          }}>
+            {msg.text}
+          </div>
+        )}
+
+        {/* Info Box */}
+        <div style={{ marginTop:20, background:'#EFF6FF', border:'1px solid #BFDBFE', borderRadius:10, padding:'14px 16px' }}>
+          <div style={{ fontSize:12, fontWeight:700, color:C.blue, marginBottom:8 }}>ℹ️ Kết nối GHN Affiliate hoạt động như thế nào?</div>
+          <ul style={{ margin:0, paddingLeft:16, fontSize:12, color:'#374151', lineHeight:1.8 }}>
+            <li>Sau khi kết nối, <strong>đại lý sẽ nhận hoa hồng</strong> từ mỗi đơn hàng bạn tạo.</li>
+            <li>Bạn vẫn sử dụng <strong>đầy đủ tính năng</strong> giao hàng GHN như bình thường.</li>
+            <li>Mã OTP chỉ <strong>cấp quyền nhân viên</strong> cho hệ thống, không ảnh hưởng tài khoản của bạn.</li>
+          </ul>
+        </div>
+
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────
+// PLACEHOLDER PAGES
+// ─────────────────────────────────────────────
+function PlaceholderPage({ title, icon }) {
+  return (
+    <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:12, color:C_TEXT_SECONDARY }}>
+      <div style={{ fontSize:48, opacity:.3 }}>{icon}</div>
+      <div style={{ fontSize:18, fontWeight:600, color:C_TEXT_PRIMARY }}>{title}</div>
+      <div style={{ fontSize:14 }}>Tính năng đang được phát triển</div>
+    </div>
+  )
+}
+
+
+// ─────────────────────────────────────────────
+// MARKDOWN-LITE RENDERER
+// ─────────────────────────────────────────────
+function MdRender({ text }) {
+  if (!text) return null
+  // Convert markdown-lite to HTML elements
+  const parts = []
+  let remaining = text
+  let key = 0
+
+  const lines = remaining.split('\n')
+  const rendered = lines.map((line, i) => {
+    // Code block fence (handled below)
+    if (line.startsWith('```')) return null
+
+    // Headers
+    if (line.startsWith('**') && line.endsWith('**') && line.length > 4)
+      return <div key={i} style={{fontWeight:700, color:'#111827', marginBottom:2}}>{line.slice(2,-2)}</div>
+
+    // Bold inline
+    const boldParts = line.split(/(\*\*[^*]+\*\*)/)
+    const rendered2 = boldParts.map((p, j) => {
+      if (p.startsWith('**') && p.endsWith('**'))
+        return <strong key={j}>{p.slice(2,-2)}</strong>
+      // Inline code
+      const codeParts = p.split(/(`[^`]+`)/)
+      return codeParts.map((c, k) =>
+        c.startsWith('`') && c.endsWith('`')
+          ? <code key={k} style={{background:'#F3F4F6',padding:'1px 5px',borderRadius:3,fontFamily:'monospace',fontSize:11}}>{c.slice(1,-1)}</code>
+          : c
+      )
+    })
+
+    if (line.startsWith('• ') || line.startsWith('- '))
+      return <div key={i} style={{paddingLeft:8, marginBottom:1}}>· {rendered2.slice(1)}</div>
+
+    return <div key={i} style={{marginBottom: line === '' ? 4 : 1}}>{rendered2}</div>
+  })
+
+  // Handle code blocks
+  const codeBlockRegex = /```[\w]*\n([\s\S]*?)```/g
+  const segments = text.split(codeBlockRegex)
+  if (segments.length === 1) return <div style={{fontSize:13,lineHeight:1.7}}>{rendered.filter(Boolean)}</div>
+
+  return (
+    <div style={{fontSize:13,lineHeight:1.7}}>
+      {segments.map((seg, i) =>
+        i % 2 === 0
+          ? <div key={i}>{seg.split('\n').map((l,j) => <div key={j}>{l || <br/>}</div>)}</div>
+          : <pre key={i} style={{background:'#1E293B',color:'#E2E8F0',padding:'10px 12px',borderRadius:8,fontSize:12,fontFamily:'monospace',margin:'6px 0',overflowX:'auto',whiteSpace:'pre-wrap'}}>{seg}</pre>
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────
+// AI ASSISTANT PANEL
+// ─────────────────────────────────────────────
+// Built-in offline knowledge (works without backend)
+const OFFLINE_KB = [
+  { error_msg:"Field validation for 'ShiftID' failed", endpoint:"tenant_masterdata_get_shift_detail", root_cause:"Payload thiếu ShiftID hoặc ShiftID = 0/null", solution:"Thêm ShiftID hợp lệ vào request", code_wrong:'{"Token":"tkn"}', code_right:'{"Token":"tkn","ShiftID":123}', hit_count:5 },
+  { error_msg:"Unauthorized", endpoint:"all", root_cause:"Token không hợp lệ hoặc hết hạn", solution:'Header đúng: {"Token":"YOUR_TOKEN","ShopId":123}', code_wrong:'headers={"Authorization":"Bearer x"}', code_right:'headers={"Token":"your_ghn_token","ShopId":123}', hit_count:12 },
+  { error_msg:"ShopID not found", endpoint:"v2/shipping-order/create", root_cause:"ShopId không tồn tại hoặc không thuộc token này", solution:"Kiểm tra ShopId trong GHN Dashboard", code_wrong:'{"ShopId":0}', code_right:'{"ShopId":5000000}', hit_count:7 },
+  { error_msg:"required_ward", endpoint:"v2/shipping-order/create", root_cause:"Thiếu WardCode hoặc WardCode sai", solution:"Dùng /master-data/ward để lấy WardCode đúng", code_right:'{"ToWardCode":"20308","ToDistrictId":1442}', hit_count:9 },
+  { error_msg:"The district does not support this service", endpoint:"v2/shipping-order/create", root_cause:"Dịch vụ không hỗ trợ tuyến này", solution:"Gọi available-services để lấy ServiceId hợp lệ", hit_count:4 },
+  { error_msg:"cod amount exceeds", endpoint:"v2/shipping-order/create", root_cause:"COD vượt giới hạn 10.000.000đ", solution:"Giảm CodAmount xuống < 10 triệu", code_wrong:'{"CodAmount":50000000}', code_right:'{"CodAmount":8000000}', hit_count:3 },
+  { error_msg:"weight exceed", endpoint:"v2/shipping-order/create", root_cause:"Khối lượng vượt giới hạn dịch vụ", solution:"Giảm Weight hoặc dùng ServiceTypeId=5 (hàng cồng kềnh)", hit_count:2 },
+]
+
+function analyzeOffline(text) {
+  const t = text.toLowerCase()
+  let best = null, bestScore = 0
+  for (const kb of OFFLINE_KB) {
+    const pattern = kb.error_msg.toLowerCase()
+    let score = 0
+    if (t.includes(pattern)) score = pattern.length
+    else if (pattern.includes(t)) score = t.length / 2
+    else {
+      const pTok = new Set(pattern.split(/[\s'".,]+/).filter(Boolean))
+      const tTok = new Set(t.split(/[\s'".,]+/).filter(Boolean))
+      const common = [...pTok].filter(x => tTok.has(x) && !['for','the','a','is','in','of','to','not','field'].includes(x))
+      score = common.length * 3
+    }
+    if (score > bestScore) { bestScore = score; best = kb }
+  }
+  if (best && bestScore >= 3) {
+    return { found:true, confidence:Math.min(95, bestScore*5), endpoint:best.endpoint,
+      root_cause:best.root_cause, solution:best.solution,
+      code_wrong:best.code_wrong, code_right:best.code_right,
+      matched_pattern:best.error_msg, source:'offline_kb' }
+  }
+  // Heuristic
+  if (t.includes('401') || t.includes('unauthorized')) return { found:true, confidence:80, endpoint:'All', root_cause:'Token không hợp lệ hoặc hết hạn', solution:'Kiểm tra header Token và ShopId', code_right:'headers={"Token":"...","ShopId":123}', source:'heuristic' }
+  if (t.includes('required') || t.includes('missing') || t.includes('validation')) {
+    const m = text.match(/['"](\w+)['"]/); const f = m ? m[1] : 'field'
+    return { found:true, confidence:65, endpoint:'Không xác định', root_cause:`Thiếu trường bắt buộc: ${f}`, solution:`Thêm "${f}" vào request body`, code_right:`{ "${f}": <giá_trị> }`, source:'heuristic' }
+  }
+  return { found:false, confidence:0, root_cause:'Không tìm thấy trong knowledge base', solution:'Paste đúng error message từ response JSON của GHN' }
+}
+
+function chatOffline(msg) {
+  const m = msg.toLowerCase()
+  if (m.includes('token') || m.includes('auth')) return 'Header GHN:\n```\nToken: YOUR_GHN_TOKEN\nShopId: YOUR_SHOP_ID\nContent-Type: application/json\n```'
+  if (m.includes('tạo đơn') || m.includes('create order')) return 'Required fields tạo đơn:\n```json\n{\n  "ToName":"Tên KH","ToPhone":"0xxx",\n  "ToAddress":"Địa chỉ",\n  "ToWardCode":"20308",\n  "ToDistrictId":1442,\n  "Weight":200,"Length":10,"Width":10,"Height":10,\n  "ServiceTypeId":2,\n  "PaymentTypeId":2,\n  "Items":[{"name":"SP","quantity":1,"weight":200}]\n}\n```'
+  if (m.includes('phí') || m.includes('fee')) return 'Tính phí: GET /v2/shipping-order/fee\nParams: ServiceId, FromDistrictId, ToDistrictId, ToWardCode, Weight'
+  if (m.includes('/endpoints')) return OFFLINE_KB.map(k => `• **${k.endpoint}** – \`${k.error_msg.slice(0,40)}\``).join('\n')
+  if (m.includes('/kb')) return `📚 Knowledge base offline: **${OFFLINE_KB.length} lỗi đã biết**\n\n` + OFFLINE_KB.slice(0,5).map(k=>`• [${k.hit_count}x] ${k.error_msg.slice(0,50)}`).join('\n')
+  if (m.includes('/help')) return '**Lệnh hỗ trợ:**\n• `/endpoints` – Danh sách endpoint\n• `/kb` – Knowledge base\n• `/help` – Trợ giúp\n\nHoặc paste error message để phân tích!'
+  if (m.includes('chào') || m.includes('hello') || m.includes('hi')) return '👋 Xin chào! Tôi là **GHN API Assistant**.\n\nPaste thông báo lỗi để tôi phân tích, hoặc hỏi về API GHN bất kỳ!'
+  return 'Tôi chưa hiểu. Thử:\n• Paste error message GHN\n• Hỏi về "tạo đơn", "tính phí", "token"\n• Gõ `/help` để xem lệnh'
+}
+
+function AIAssistant() {
+  const [open, setOpen]         = useState(false)
+  const [tab, setTab]           = useState('chat')
+  const [msgs, setMsgs]         = useState([
+    { role:'bot', text:'👋 Xin chào! Tôi là **GHN API Assistant**.\n\nPaste thông báo lỗi để phân tích, hoặc hỏi về API GHN.\n\nGõ `/help` để xem lệnh.' }
+  ])
+  const [input, setInput]       = useState('')
+  const [typing, setTyping]     = useState(false)
+  const [backendOk, setBackend] = useState(false)
+  const [kbData, setKbData]     = useState(OFFLINE_KB)
+  const [stats, setStats]       = useState(null)
+  const [apiForm, setApiForm]   = useState({ token:'', shopId:'', endpoint:'/v2/shipping-order/detail', method:'POST', body:'{\n  "OrderCode": "GHN00123460"\n}' })
+  const [apiResult, setApiResult] = useState(null)
+  const [apiLoading, setApiLoading] = useState(false)
+  const [unread, setUnread]     = useState(1)
+  const chatRef = React.useRef(null)
+
+  // Check backend on mount
+  React.useEffect(() => {
+    fetch(`${API_BASE}/api/stats`)
+      .then(r => r.json()).then(d => { setBackend(true); setStats(d) })
+      .catch(() => setBackend(false))
+  }, [])
+
+  // Load KB when tab changes
+  React.useEffect(() => {
+    if (tab === 'kb' && backendOk) {
+      fetch(`${API_BASE}/api/knowledge?limit=30`)
+        .then(r=>r.json()).then(d=>setKbData(d.items))
+        .catch(()=>{})
+    }
+    if (tab === 'stats' && backendOk) {
+      fetch(`${API_BASE}/api/stats`).then(r=>r.json()).then(setStats).catch(()=>{})
+    }
+  }, [tab, backendOk])
+
+  // Auto-scroll chat
+  React.useEffect(() => {
+    if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight
+  }, [msgs, typing])
+
+  const handleOpen = () => { setOpen(true); setUnread(0) }
+
+  const sendMsg = async () => {
+    const text = input.trim()
+    if (!text) return
+    setInput('')
+    setMsgs(p => [...p, { role:'user', text }])
+    setTyping(true)
+
+    // Check if error-like message
+    const errKeywords = ['error','failed','invalid','unauthorized','not found','exception','lỗi','thiếu','required','validation','500','401','403','field']
+    const isError = errKeywords.some(k => text.toLowerCase().includes(k)) && text.length > 8
+
+    try {
+      if (backendOk) {
+        const endpoint = isError ? '/api/analyze' : '/api/chat'
+        const body = isError ? { error_text: text } : { message: text }
+        const res = await fetch(`${API_BASE}${endpoint}`, {
+          method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
+        })
+        const data = await res.json()
+        setTyping(false)
+        if (isError && data.found) {
+          setMsgs(p => [...p, { role:'bot', text: formatAnalysis(data), type:'analysis', data }])
+        } else {
+          const txt = data.message || data.solution || JSON.stringify(data, null, 2)
+          setMsgs(p => [...p, { role:'bot', text: txt }])
+        }
+      } else {
+        // Offline mode
+        await new Promise(r => setTimeout(r, 600))
+        setTyping(false)
+        if (isError) {
+          const result = analyzeOffline(text)
+          setMsgs(p => [...p, { role:'bot', text: formatAnalysis(result), type:'analysis', data:result }])
+        } else {
+          setMsgs(p => [...p, { role:'bot', text: chatOffline(text) }])
+        }
+      }
+    } catch(e) {
+      setTyping(false)
+      setMsgs(p => [...p, { role:'bot', text:'⚠️ Lỗi kết nối. Đang dùng offline mode.\n\n' + (isError ? formatAnalysis(analyzeOffline(text)) : chatOffline(text)) }])
+    }
+  }
+
+  const formatAnalysis = (r) => {
+    if (!r.found) return `🔴 **Không tìm thấy trong KB**\n\n${r.solution}\n\n💡 Thử paste đúng message lỗi từ JSON response.`
+    const conf = r.confidence >= 80 ? '🟢' : r.confidence >= 50 ? '🟡' : '🔴'
+    let out = `${conf} **Độ tin cậy: ${r.confidence}%**\n\n`
+    out += `📍 **Endpoint:** \`${r.endpoint || '?'}\`\n\n`
+    out += `❓ **Nguyên nhân:**\n${r.root_cause}\n\n`
+    out += `✅ **Cách sửa:**\n${r.solution}\n`
+    if (r.code_wrong) out += `\n❌ **Code sai:**\n\`\`\`\n${r.code_wrong}\n\`\`\``
+    if (r.code_right) out += `\n\n✅ **Code đúng:**\n\`\`\`\n${r.code_right}\n\`\`\``
+    return out
+  }
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg() }
+  }
+
+  const callApi = async () => {
+    if (!apiForm.token) { setApiResult({error:'Token không được trống'}); return }
+    setApiLoading(true); setApiResult(null)
+    try {
+      let body = null
+      try { body = JSON.parse(apiForm.body) } catch(e) { body = apiForm.body }
+      const res = await fetch(`${API_BASE}/api/ghn/call`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ token:apiForm.token, shop_id:parseInt(apiForm.shopId)||0, endpoint:apiForm.endpoint, method:apiForm.method, body })
+      })
+      setApiResult(await res.json())
+    } catch(e) {
+      setApiResult({error:'Backend offline. Chạy run.bat trước!'})
+    }
+    setApiLoading(false)
+  }
+
+  const ENDPOINTS_LIST = [
+    '/v2/shipping-order/create', '/v2/shipping-order/detail', '/v2/shipping-order/fee',
+    '/v2/shipping-order/available-services', '/v2/switch-status/cancel',
+    '/master-data/province', '/master-data/district', '/master-data/ward',
+    '/v2/shop/all', '/v2/shift/date',
+  ]
+
+  return (
+    <>
+      {/* Floating button */}
+      <button className="ai-fab" onClick={handleOpen} title="GHN AI Assistant">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" fill="white" opacity="0"/>
+          <path d="M20 2H4C2.9 2 2 2.9 2 4v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z" fill="white"/>
+        </svg>
+        {unread > 0 && <div className="ai-fab-badge">{unread}</div>}
+      </button>
+
+      {/* Panel */}
+      <div className={`ai-panel ${open ? '' : 'closed'}`}>
+        {/* Header */}
+        <div className="ai-panel-hdr">
+          <div style={{width:34,height:34,borderRadius:'50%',background:'rgba(255,255,255,.25)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}}>🤖</div>
+          <div style={{flex:1}}>
+            <div style={{fontWeight:700,fontSize:14}}>GHN API Assistant</div>
+            <div style={{fontSize:11,opacity:.85,display:'flex',alignItems:'center',gap:4}}>
+              <div style={{width:6,height:6,borderRadius:'50%',background: backendOk ? '#4ADE80' : '#FCD34D'}}/>
+              {backendOk ? 'Backend online' : 'Offline mode (đủ dùng)'}
+            </div>
+          </div>
+          <button onClick={() => setOpen(false)} style={{background:'rgba(255,255,255,.2)',border:'none',borderRadius:6,width:28,height:28,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff'}}>✕</button>
+        </div>
+
+        {/* Tabs */}
+        <div className="ai-tab-bar">
+          {[['chat','💬 Chat'],['kb','📚 KB'],['api','🔌 API Test'],['stats','📊 Stats']].map(([k,l])=>(
+            <div key={k} className={`ai-tab ${tab===k?'on':''}`} onClick={()=>setTab(k)}>{l}</div>
+          ))}
+        </div>
+
+        {/* ── CHAT TAB ── */}
+        {tab === 'chat' && (
+          <>
+            <div className="chat-body" ref={chatRef}>
+              {msgs.map((m, i) => (
+                <div key={i} className={`msg-bubble ${m.role==='user'?'msg-user':'msg-bot'}`}>
+                  <MdRender text={m.text} />
+                </div>
+              ))}
+              {typing && (
+                <div className="msg-bubble msg-bot msg-typing">
+                  <span/><span/><span/>
+                </div>
+              )}
+            </div>
+            <div className="chat-input-wrap">
+              <textarea
+                className="chat-input"
+                value={input}
+                onChange={e=>setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Paste lỗi GHN hoặc hỏi về API... (Enter gửi)"
+                rows={1}
+              />
+              <button className="chat-send" onClick={sendMsg} disabled={!input.trim()}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* ── KB TAB ── */}
+        {tab === 'kb' && (
+          <div style={{flex:1,overflowY:'auto',padding:12}}>
+            <div style={{fontSize:12,color:'#6B7280',marginBottom:8}}>
+              {backendOk ? '✅ Dữ liệu từ backend' : '📦 Offline KB'} · {kbData.length} entries
+            </div>
+            {kbData.map((item, i) => (
+              <div key={i} className="kb-item" onClick={()=>{ setTab('chat'); setInput(item.error_msg); }}>
+                <div style={{fontSize:12,fontWeight:700,color:'#111827',marginBottom:3}}>{item.error_msg?.slice(0,60)}{item.error_msg?.length>60?'...':''}</div>
+                <div style={{fontSize:11,color:'#6B7280',marginBottom:4}}>📍 {item.endpoint || '—'}</div>
+                {item.root_cause && item.root_cause !== 'Chưa phân tích' && (
+                  <div style={{fontSize:11,color:'#374151',marginBottom:4}}>💡 {item.root_cause?.slice(0,70)}</div>
+                )}
+                <div className="conf-bar">
+                  <div className="conf-fill" style={{width:`${Math.min(100,(item.hit_count||0)*10+20)}%`,background:`${(item.hit_count||0)>5?'#10B981':(item.hit_count||0)>2?'#F59E0B':'#6B7280'}`}}/>
+                </div>
+                <div style={{fontSize:10,color:'#9CA3AF'}}>Truy vấn {item.hit_count||0} lần · {item.source||'manual'}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── API TEST TAB ── */}
+        {tab === 'api' && (
+          <div style={{flex:1,overflowY:'auto',padding:12}}>
+            {!backendOk && (
+              <div style={{background:'#FEF3C7',border:'1px solid #FCD34D',borderRadius:8,padding:'8px 12px',marginBottom:10,fontSize:12,color:'#92400E'}}>
+                ⚠️ Backend chưa chạy. Double-click <strong>backend/run.bat</strong> để bật, rồi reload trang.
+              </div>
+            )}
+            <div className="api-field">
+              <label>Token GHN</label>
+              <input value={apiForm.token} onChange={e=>setApiForm(p=>({...p,token:e.target.value}))} placeholder="Dán token GHN vào đây" />
+            </div>
+            <div className="api-field">
+              <label>Shop ID</label>
+              <input type="number" value={apiForm.shopId} onChange={e=>setApiForm(p=>({...p,shopId:e.target.value}))} placeholder="0" />
+            </div>
+            <div className="api-field">
+              <label>Endpoint</label>
+              <select value={apiForm.endpoint} onChange={e=>setApiForm(p=>({...p,endpoint:e.target.value}))}>
+                {ENDPOINTS_LIST.map(ep=><option key={ep} value={ep}>{ep}</option>)}
+              </select>
+            </div>
+            <div className="api-field">
+              <label>Method</label>
+              <select value={apiForm.method} onChange={e=>setApiForm(p=>({...p,method:e.target.value}))}>
+                <option>POST</option><option>GET</option>
+              </select>
+            </div>
+            <div className="api-field">
+              <label>Request Body (JSON)</label>
+              <textarea value={apiForm.body} onChange={e=>setApiForm(p=>({...p,body:e.target.value}))} style={{fontFamily:'monospace',fontSize:12}} />
+            </div>
+            <button className="btn-orange" style={{width:'100%',justifyContent:'center'}} onClick={callApi} disabled={apiLoading}>
+              {apiLoading ? '⏳ Đang gọi...' : '▶ Gọi API GHN'}
+            </button>
+            {apiResult && (
+              <div className="result-box">
+                {JSON.stringify(apiResult, null, 2)}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── STATS TAB ── */}
+        {tab === 'stats' && (
+          <div style={{flex:1,overflowY:'auto'}}>
+            {stats ? (
+              <>
+                <div className="stat-grid">
+                  {[
+                    {num:stats.endpoints_learned||8, lbl:'Endpoints học được'},
+                    {num:stats.errors_known||OFFLINE_KB.length, lbl:'Lỗi đã biết'},
+                    {num:stats.total_api_calls||0, lbl:'API calls đã test'},
+                    {num:stats.failed_api_calls||0, lbl:'Calls lỗi'},
+                    {num:stats.unknown_errors||0, lbl:'Lỗi chưa phân tích'},
+                    {num:stats.chat_messages||0, lbl:'Tin nhắn chat'},
+                  ].map((s,i)=>(
+                    <div key={i} className="stat-card">
+                      <div className="stat-num">{s.num}</div>
+                      <div className="stat-lbl">{s.lbl}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{padding:'0 12px 12px'}}>
+                  <button className="btn-orange" style={{width:'100%',justifyContent:'center',fontSize:13}}
+                    onClick={()=>fetch(`${API_BASE}/api/ghn/learn`,{method:'POST'}).then(r=>r.json()).then(d=>alert(`✅ Đã học ${d.result?.learned} endpoints!`)).catch(()=>alert('Backend offline'))}>
+                    🔄 Học lại từ GHN API
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div style={{padding:24,textAlign:'center'}}>
+                <div style={{fontSize:32,marginBottom:8}}>📊</div>
+                <div style={{fontSize:14,color:'#6B7280',marginBottom:4}}>Backend chưa kết nối</div>
+                <div style={{fontSize:12,color:'#9CA3AF'}}>Chạy backend/run.bat để xem thống kê</div>
+                <div style={{marginTop:16}}>
+                  <div className="stat-grid">
+                    {[{num:8,lbl:'Endpoints (offline)'},{num:OFFLINE_KB.length,lbl:'Lỗi đã biết (offline)'}].map((s,i)=>(
+                      <div key={i} className="stat-card"><div className="stat-num">{s.num}</div><div className="stat-lbl">{s.lbl}</div></div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
+// ─────────────────────────────────────────────
+// LOGIN PAGE
+// ─────────────────────────────────────────────
+function LoginPage({ onLogin }) {
+  const [user, setUser]   = useState('')
+  const [pass, setPass]   = useState('')
+  const [err,  setErr]    = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const handleLogin = async () => {
+    setErr('')
+    setLoading(true)
+
+    const u = user.trim()
+
+    if (u === ADMIN_USER && pass === ADMIN_PASS) {
+      setTimeout(() => onLogin({ role:'super_admin', sellerId:null, sellerName:'Super Admin' }), 500)
+      return
+    }
+
+    if (pass === '123456') {
+      try {
+        const r = await apiFetch('/api/sellers')
+        if (r.ok && r.data && r.data.sellers) {
+          const seller = r.data.sellers.find(s => (s.phone || '').trim() === u)
+          if (seller && seller.status === 'active') {
+            onLogin({ role:'seller', sellerId:seller.id, sellerName:seller.name })
+            return
+          }
+        }
+      } catch (e) {
+        // Fallback to offline init data if API fails
+      }
+      
+      const seller = SELLERS_INIT.find(s => (s.phone || '').trim() === u)
+      if (seller && seller.status === 'active') {
+        setTimeout(() => onLogin({ role:'seller', sellerId:seller.id, sellerName:seller.name }), 500)
+        return
+      }
+    }
+
+    setErr('Sai tên đăng nhập hoặc mật khẩu')
+    setLoading(false)
+  }
+
+  return (
+    <div style={{ minHeight:'100vh', background:'linear-gradient(135deg,#FF5200 0%,#FF8C00 50%,#FFB347 100%)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+      <div style={{ background:'#fff', borderRadius:16, padding:36, width:380, boxShadow:'0 24px 64px rgba(0,0,0,.2)' }}>
+        {/* Logo */}
+        <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:28 }}>
+          <div style={{ width:40, height:40, background:'linear-gradient(135deg,#FF5200,#FF8C00)', borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <span style={{ color:'#fff', fontWeight:900, fontSize:18 }}>P</span>
+          </div>
+          <div>
+            <div style={{ fontWeight:800, fontSize:18, color:'#111827', letterSpacing:'-0.03em' }}>POS của tao</div>
+            <div style={{ fontSize:11, color:'#9CA3AF' }}>Hệ thống quản lý đơn hàng</div>
+          </div>
+        </div>
+
+        <div style={{ fontSize:15, fontWeight:700, color:'#111827', marginBottom:4 }}>Đăng nhập</div>
+        <div style={{ fontSize:12, color:'#9CA3AF', marginBottom:20 }}>Super Admin: admin / pos2024<br/>Nhà bán hàng: Số điện thoại / 123456</div>
+
+        <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+          <div>
+            <label style={{ fontSize:12, fontWeight:600, color:'#374151', display:'block', marginBottom:5 }}>Tên đăng nhập (SĐT)</label>
+            <input value={user} onChange={e=>setUser(e.target.value)}
+              onKeyDown={e=>e.key==='Enter'&&handleLogin()}
+              placeholder="SĐT hoặc admin"
+              style={{ width:'100%', border:`1.5px solid ${err?'#EF4444':'#E5E7EB'}`, borderRadius:8, padding:'9px 12px', fontSize:14, outline:'none', fontFamily:'Inter,sans-serif', boxSizing:'border-box', transition:'border-color .15s' }}
+              onFocus={e=>e.target.style.borderColor='#FF5200'} onBlur={e=>e.target.style.borderColor=err?'#EF4444':'#E5E7EB'}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize:12, fontWeight:600, color:'#374151', display:'block', marginBottom:5 }}>Mật khẩu</label>
+            <input type="password" value={pass} onChange={e=>setPass(e.target.value)}
+              onKeyDown={e=>e.key==='Enter'&&handleLogin()}
+              placeholder="••••••••"
+              style={{ width:'100%', border:`1.5px solid ${err?'#EF4444':'#E5E7EB'}`, borderRadius:8, padding:'9px 12px', fontSize:14, outline:'none', fontFamily:'Inter,sans-serif', boxSizing:'border-box', transition:'border-color .15s' }}
+              onFocus={e=>e.target.style.borderColor='#FF5200'} onBlur={e=>e.target.style.borderColor=err?'#EF4444':'#E5E7EB'}
+            />
+          </div>
+          {err && <div style={{ fontSize:12, color:'#EF4444', display:'flex', alignItems:'center', gap:4 }}>⚠️ {err}</div>}
+          <button onClick={handleLogin} disabled={loading || !user || !pass}
+            style={{ background: loading||!user||!pass?'#E5E7EB':'linear-gradient(135deg,#FF5200,#FF8C00)', color: loading||!user||!pass?'#9CA3AF':'#fff', border:'none', borderRadius:8, padding:'11px', fontSize:14, fontWeight:700, cursor: loading||!user||!pass?'not-allowed':'pointer', marginTop:4, fontFamily:'Inter,sans-serif', transition:'all .15s' }}>
+            {loading ? '⏳ Đang đăng nhập...' : 'Đăng nhập'}
+          </button>
+        </div>
+
+        <div style={{ marginTop:20, padding:12, background:'#F9FAFB', borderRadius:8, fontSize:12, color:'#6B7280' }}>
+          💡 Demo: <strong>admin</strong> / <strong>pos2024</strong>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────
+// SELLER MANAGEMENT PAGE
+// ─────────────────────────────────────────────
+function SellerManagementPage() {
+  const [sellers, setSellers]       = useState(SELLERS_INIT)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [copied, setCopied]         = useState(null)
+  const [form, setForm]             = useState({ name:'', ownerName:'', phone:'', email:'', ghnToken:'', ghnShopId:'' })
+  const [formErr, setFormErr]       = useState('')
+
+  const pageUrl = window.location.href.split('#')[0]
+
+  useEffect(() => {
+    if (BACKEND_ONLINE) {
+      apiFetch('/api/sellers').then(r => {
+        if (r.ok && r.data.sellers) setSellers(r.data.sellers)
+      })
+    }
+  }, [])
+
+  const copyLink = (key, id) => {
+    const link = `${pageUrl}#s=${key}`
+    navigator.clipboard.writeText(link).then(() => {
+      setCopied(id)
+      setTimeout(() => setCopied(null), 2000)
+    })
+  }
+
+  const generateKey = () => {
+    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
+    return Array.from({length:10}, ()=>chars[Math.floor(Math.random()*chars.length)]).join('')
+  }
+
+  const handleCreate = () => {
+    if (!form.name || !form.ownerName || !form.phone) { setFormErr('Vui lòng điền đầy đủ thông tin bắt buộc'); return }
+    const id = 'SEL' + Date.now()
+    const loginKey = generateKey()
+    
+    if (BACKEND_ONLINE) {
+      apiFetch('/api/sellers', {
+        method: 'POST',
+        body: JSON.stringify({
+          id, name: form.name, owner_name: form.ownerName,
+          phone: form.phone, email: form.email,
+          ghn_token: form.ghnToken, ghn_shop_id: parseInt(form.ghnShopId)||0,
+          login_key: loginKey
+        })
+      }).then(r => {
+        if (r.ok) {
+          apiFetch('/api/sellers').then(res => { if(res.ok) setSellers(res.data.sellers) })
+        }
+      })
+    }
+
+    const newSeller = {
+      ...form, id, ghnShopId: parseInt(form.ghnShopId)||0,
+      loginKey: loginKey, status:'active',
+      createdAt: new Date().toLocaleDateString('vi-VN'), shopId: null,
+    }
+    setSellers(p => [newSeller, ...p.filter(s=>s.id!==id)])
+    setForm({ name:'', ownerName:'', phone:'', email:'', ghnToken:'', ghnShopId:'' })
+    setFormErr('')
+    setDrawerOpen(false)
+  }
+
+  const toggleStatus = (id) => {
+    const seller = sellers.find(s => s.id === id)
+    if (!seller) return
+    const newStatus = seller.status === 'active' ? 'inactive' : 'active'
+    if (BACKEND_ONLINE) {
+      apiFetch(`/api/sellers/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: newStatus })
+      })
+    }
+    setSellers(p => p.map(s => s.id===id ? {...s, status:newStatus} : s))
+  }
+
+  return (
+    <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
+      {/* Header */}
+      <div style={{ background:'#fff', borderBottom:'1px solid #E5E7EB', padding:'12px 20px', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <div>
+          <div style={{ fontSize:18, fontWeight:700, color:'#111827' }}>Quản lý Nhà bán hàng</div>
+          <div style={{ fontSize:12, color:'#6B7280', marginTop:2 }}>{sellers.filter(s=>s.status==='active').length} đang hoạt động · {sellers.length} tổng cộng</div>
+        </div>
+        <button className="btn-orange" onClick={()=>setDrawerOpen(true)}>
+          <Ic.Plus /> Thêm nhà bán hàng
+        </button>
+      </div>
+
+      {/* Table */}
+      <div style={{ flex:1, overflow:'auto', padding:20 }}>
+        <div style={{ background:'#fff', borderRadius:10, border:'1px solid #E5E7EB', overflow:'hidden' }}>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 130px 180px 100px 120px', background:'#F9FAFB', borderBottom:'1px solid #E5E7EB' }}>
+            {['Nhà bán hàng','Liên hệ','GHN Shop ID','Tài khoản đăng nhập','Trạng thái','Thao tác'].map(h => (
+              <div key={h} style={{ padding:'10px 14px', fontSize:12, fontWeight:600, color:'#6B7280' }}>{h}</div>
+            ))}
+          </div>
+          {sellers.map((s, i) => (
+            <div key={s.id} style={{ display:'grid', gridTemplateColumns:'1fr 1fr 130px 180px 100px 120px', borderBottom: i<sellers.length-1?'1px solid #F3F4F6':'none', transition:'background .1s' }}
+              onMouseEnter={e=>e.currentTarget.style.background='#FAFAFA'}
+              onMouseLeave={e=>e.currentTarget.style.background='#fff'}>
+              {/* Tên */}
+              <div style={{ padding:'12px 14px' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <div style={{ width:32, height:32, borderRadius:8, background:'linear-gradient(135deg,#FF5200,#FF8C00)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    <span style={{ color:'#fff', fontWeight:700, fontSize:12 }}>{s.name[0]}</span>
+                  </div>
+                  <div>
+                    <div style={{ fontSize:13, fontWeight:600, color:'#111827' }}>{s.name}</div>
+                    <div style={{ fontSize:11, color:'#9CA3AF' }}>{s.id}</div>
+                  </div>
+                </div>
+              </div>
+              {/* Liên hệ */}
+              <div style={{ padding:'12px 14px', display:'flex', flexDirection:'column', justifyContent:'center' }}>
+                <div style={{ fontSize:13, color:'#374151' }}>{s.ownerName}</div>
+                <div style={{ fontSize:11, color:'#6B7280' }}>{s.phone} · {s.email}</div>
+              </div>
+              {/* GHN Shop ID */}
+              <div style={{ padding:'12px 14px', display:'flex', alignItems:'center' }}>
+                <span style={{ fontSize:12, background:'#F3F4F6', padding:'2px 8px', borderRadius:5, fontFamily:'monospace', color:'#374151' }}>
+                  {s.ghnShopId || '—'}
+                </span>
+              </div>
+              {/* Link */}
+              <div style={{ padding:'12px 14px', display:'flex', flexDirection:'column', justifyContent:'center' }}>
+                <span style={{ fontSize:13, color:'#111827', fontWeight:600 }}>{s.phone}</span>
+                <span style={{ fontSize:11, color:'#6B7280' }}>Pass: 123456</span>
+              </div>
+              {/* Status */}
+              <div style={{ padding:'12px 14px', display:'flex', alignItems:'center' }}>
+                <span style={{ fontSize:11, fontWeight:600, padding:'3px 10px', borderRadius:20,
+                  background: s.status==='active'?'#D1FAE5':'#FEE2E2',
+                  color: s.status==='active'?'#059669':'#DC2626' }}>
+                  {s.status==='active' ? '● Hoạt động' : '○ Khoá'}
+                </span>
+              </div>
+              {/* Actions */}
+              <div style={{ padding:'12px 14px', display:'flex', alignItems:'center', gap:6 }}>
+                <button onClick={()=>toggleStatus(s.id)}
+                  style={{ background:'#F3F4F6', border:'none', borderRadius:5, padding:'4px 10px', fontSize:11, fontWeight:600, cursor:'pointer', color:'#374151' }}>
+                  {s.status==='active' ? 'Khoá' : 'Mở'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Create Drawer */}
+      <>
+        <div onClick={()=>setDrawerOpen(false)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.3)', zIndex:200, opacity:drawerOpen?1:0, pointerEvents:drawerOpen?'auto':'none', transition:'opacity .2s' }} />
+        <div style={{ position:'fixed', top:0, right:0, width:440, height:'100vh', background:'#fff', boxShadow:'-4px 0 24px rgba(0,0,0,.15)', zIndex:201, display:'flex', flexDirection:'column', transform:drawerOpen?'translateX(0)':'translateX(100%)', transition:'transform .3s cubic-bezier(.4,0,.2,1)' }}>
+          <div style={{ padding:'14px 16px', borderBottom:'1px solid #E5E7EB', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
+            <span style={{ fontSize:15, fontWeight:700, color:'#111827' }}>Thêm Nhà Bán Hàng</span>
+            <button onClick={()=>setDrawerOpen(false)} style={{ background:'none', border:'none', cursor:'pointer', padding:4 }}><Ic.X /></button>
+          </div>
+          <div style={{ flex:1, overflowY:'auto', padding:16, display:'flex', flexDirection:'column', gap:12 }}>
+            {[
+              { key:'name', label:'Tên shop *', placeholder:'Tên shop / cửa hàng' },
+              { key:'ownerName', label:'Chủ shop *', placeholder:'Họ tên chủ sở hữu' },
+              { key:'phone', label:'SĐT *', placeholder:'0901234567' },
+              { key:'email', label:'Email', placeholder:'shop@gmail.com' },
+              { key:'ghnToken', label:'GHN Token', placeholder:'Token GHN của nhà bán hàng' },
+              { key:'ghnShopId', label:'GHN Shop ID', placeholder:'Nhập Shop ID từ GHN Dashboard' },
+            ].map(({key,label,placeholder}) => (
+              <div key={key}>
+                <label style={{ fontSize:12, fontWeight:600, color:'#374151', display:'block', marginBottom:5 }}>{label}</label>
+                <input value={form[key]} onChange={e=>setForm(p=>({...p,[key]:e.target.value}))}
+                  placeholder={placeholder}
+                  style={{ width:'100%', border:'1.5px solid #E5E7EB', borderRadius:8, padding:'9px 12px', fontSize:13, outline:'none', fontFamily:'Inter,sans-serif', boxSizing:'border-box' }}
+                  onFocus={e=>e.target.style.borderColor='#FF5200'} onBlur={e=>e.target.style.borderColor='#E5E7EB'}
+                />
+              </div>
+            ))}
+            {formErr && <div style={{ fontSize:12, color:'#EF4444' }}>⚠️ {formErr}</div>}
+            <div style={{ background:'#FFF0E9', borderRadius:8, padding:10, fontSize:12, color:'#92400E' }}>
+              💡 Nhà bán hàng sẽ đăng nhập bằng <strong>Số điện thoại</strong> và Mật khẩu mặc định là <strong>123456</strong>.
+            </div>
+          </div>
+          <div style={{ padding:16, borderTop:'1px solid #E5E7EB', display:'flex', gap:8, flexShrink:0 }}>
+            <button className="btn-outline" style={{ flex:1, justifyContent:'center' }} onClick={()=>setDrawerOpen(false)}>Huỷ</button>
+            <button className="btn-orange" style={{ flex:2, justifyContent:'center' }} onClick={handleCreate}>✓ Tạo tài khoản</button>
+          </div>
+        </div>
+      </>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────
+// APP ROOT
+// ─────────────────────────────────────────────
+function App() {
+  const [session, setSession] = useState(null)
+  const [page, setPage]       = useState('orders')
+  const [booting, setBooting] = useState(true)
+
+  // On mount: check URL hash for seller link OR restore session
+  useEffect(() => {
+    const boot = async () => {
+      const key = getLoginKeyFromURL()
+      if (key) {
+        let sellerList = SELLERS_INIT
+        if (BACKEND_ONLINE) {
+          const res = await apiFetch('/api/sellers')
+          if (res.ok) sellerList = res.data.sellers
+        }
+        const seller = sellerList.find(s => (s.loginKey || s.login_key) === key)
+        if (seller && seller.status === 'active') {
+          const s = { role:'seller', sellerId:seller.id, sellerName:seller.name, loginKey:key }
+          setSession(s)
+          localStorage.setItem(SESSION_KEY, JSON.stringify(s))
+        }
+      } else {
+        const saved = getSession()
+        if (saved) setSession(saved)
+      }
+      setBooting(false)
+    }
+    boot()
+  }, [])
+
+  const handleLogin = (s) => {
+    setSession(s)
+    setPage('orders')
+  }
+
+  const handleLogout = () => {
+    clearSession()
+    setSession(null)
+    window.location.hash = ''
+    setPage('orders')
+  }
+
+  // Save session to localStorage
+  useEffect(() => {
+    if (session) setSession2(session)
+  }, [session])
+
+  function setSession2(s) { setSession(s); if(s) localStorage.setItem(SESSION_KEY, JSON.stringify(s)) }
+
+  if (booting) return (
+    <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#F3F4F6' }}>
+      <div style={{ fontSize:14, color:'#9CA3AF' }}>Đang tải...</div>
+    </div>
+  )
+
+  if (!session) return <LoginPage onLogin={(s) => { localStorage.setItem(SESSION_KEY, JSON.stringify(s)); setSession(s) }} />
+
+  const renderPage = () => {
+    if (page === 'orders')  return <AgencyOrdersPage session={session} />
+    if (page === 'sellers' && session.role === 'super_admin') return <SellerManagementPage />
+    if (page === 'ghn-connect' && session.role !== 'super_admin') return <GhnConnectPage session={session} />
+    return <AgencyOrdersPage session={session} />
+  }
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', height:'100vh', overflow:'hidden' }}>
+      <TopBar session={session} />
+      <div style={{ display:'flex', flex:1, overflow:'hidden' }}>
+        <Sidebar activePage={page} onNavigate={setPage} session={session} onLogout={handleLogout} />
+        <div style={{ flex:1, overflow:'hidden', display:'flex', flexDirection:'column' }}>
+          {renderPage()}
+        </div>
+      </div>
+      <AIAssistant />
+    </div>
+  )
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />)
+</script>
+</body>
+</html>
