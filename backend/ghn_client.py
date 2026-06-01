@@ -275,7 +275,7 @@ async def get_order_detail(
         token, shop_id,
         path="/v2/shipping-order/detail",
         method="GET",
-        body={"OrderCode": order_code},
+        body={"order_code": order_code},
         seller_id=seller_id,
     )
 

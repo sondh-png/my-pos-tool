@@ -2378,17 +2378,26 @@ function AIAssistant() {
                 ⚠️ Backend chưa chạy. Double-click <strong>backend/run.bat</strong> để bật, rồi reload trang.
               </div>
             )}
-            <div className="api-field">
-              <label>Token GHN</label>
-              <input value={apiForm.token} onChange={e=>setApiForm(p=>({...p,token:e.target.value}))} placeholder="Dán token GHN vào đây" />
+            <div style={{background:'#F9FAFB',border:'1px solid #E5E7EB',borderRadius:8,padding:'10px 12px',marginBottom:10}}>
+              <div style={{fontSize:11,fontWeight:700,color:'#6B7280',textTransform:'uppercase',marginBottom:8}}>🔑 Credentials</div>
+              <div style={{display:'flex',gap:8}}>
+                <div style={{flex:3}}>
+                  <div style={{fontSize:11,color:'#9CA3AF',marginBottom:3}}>Token GHN</div>
+                  <input style={{width:'100%',padding:'6px 8px',border:'1px solid #E5E7EB',borderRadius:6,fontSize:12}} value={apiForm.token} onChange={e=>setApiForm(p=>({...p,token:e.target.value}))} placeholder="Dán token GHN" />
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:11,color:'#9CA3AF',marginBottom:3}}>Shop ID</div>
+                  <input type="number" style={{width:'100%',padding:'6px 8px',border:'1px solid #E5E7EB',borderRadius:6,fontSize:12}} value={apiForm.shopId} onChange={e=>setApiForm(p=>({...p,shopId:e.target.value}))} placeholder="0" />
+                </div>
+              </div>
             </div>
             <div className="api-field">
-              <label>Shop ID</label>
-              <input type="number" value={apiForm.shopId} onChange={e=>setApiForm(p=>({...p,shopId:e.target.value}))} placeholder="0" />
-            </div>
-            <div className="api-field">
-              <label>Endpoint</label>
-              <select value={apiForm.endpoint} onChange={e=>setApiForm(p=>({...p,endpoint:e.target.value}))}>
+              <label>📡 Endpoint</label>
+              <select value={apiForm.endpoint} onChange={e=>{
+                const allEps = ENDPOINTS_GROUPED.flatMap(g=>g.endpoints)
+                const found = allEps.find(ep=>ep.url===e.target.value)
+                setApiForm(p=>({...p, endpoint:e.target.value, method: found?.method || p.method}))
+              }}>
                 {ENDPOINTS_GROUPED.map(g=>(
                   <optgroup key={g.group} label={g.group}>
                     {g.endpoints.map(ep=>(
