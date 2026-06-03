@@ -26,7 +26,7 @@ from analyzer import analyze_error, chat_response
 import traceback
 
 # ── GHN Master Token của M (dùng để nhận affiliate) ────────────────────
-GHN_MASTER_TOKEN = "354e5736-46b5-11ec-bde8-6690e1946f41"
+GHN_MASTER_TOKEN = os.environ.get("GHN_MASTER_TOKEN", "")
 
 
 # ── App ────────────────────────────────────────────────────────────
@@ -955,8 +955,8 @@ def _save_chat(user_msg: str, assistant_msg: str):
 # TELEGRAM BRIDGE
 # ══════════════════════════════════════════════════════════════════
 
-TG_BOT_TOKEN = "8858662524:AAH2wABUPxqqcu3z2y-P2CJ5ldCmemSSMu8"
-TG_CHAT_ID   = "1214757203"
+TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "")
+TG_CHAT_ID   = os.environ.get("TG_CHAT_ID", "")
 TG_API       = f"https://api.telegram.org/bot{TG_BOT_TOKEN}"
 _tg_reply_queue: list = []
 

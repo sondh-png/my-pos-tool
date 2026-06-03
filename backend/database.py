@@ -8,8 +8,7 @@ from psycopg2.extras import DictCursor
 # Lấy từ biến môi trường trên Vercel / Local
 DB_URL = os.environ.get("DATABASE_URL")
 if not DB_URL:
-    # Nếu chưa có biến môi trường, sử dụng chuỗi kết nối hardcode từ user cho tiện
-    DB_URL = "postgresql://neondb_owner:npg_IXc2GdilSMx8@ep-frosty-cake-ap5s8ue8-pooler.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require"
+    raise ValueError("DATABASE_URL environment variable is not set")
 
 class DBConnWrapper:
     def __init__(self, conn):

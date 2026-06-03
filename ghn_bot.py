@@ -6,7 +6,8 @@ import httpx
 import asyncio
 import json
 
-BOT_TOKEN = "8858662524:AAH2wABUPxqqcu3z2y-P2CJ5ldCmemSSMu8"
+import os
+BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "")
 API_BASE  = "https://my-pos-tool.vercel.app"
 TG_API    = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
