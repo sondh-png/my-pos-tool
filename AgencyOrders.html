@@ -2166,6 +2166,34 @@ function AIAssistant() {
 
   const handleOpen = () => { setOpen(true); setUnread(0) }
 
+  const TG_BOT_TOKEN = '8858662524:AAH2wABUPxqqcu3z2y-P2CJ5ldCmemSSMu8'
+  const TG_CHAT_ID = '1214757203'
+  const lastUpdateId = React.useRef(0)
+
+  // Poll Telegram for replies every 3s when chat is open
+  React.useEffect(() => {
+    if (!open) return
+    const poll = setInterval(async () => {
+      try {
+        const res = await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/getUpdates?offset=${lastUpdateId.current + 1}&timeout=2`)
+        const data = await res.json()
+        if (data.ok && data.result.length > 0) {
+          data.result.forEach(u => {
+            if (u.update_id > lastUpdateId.current) {
+              lastUpdateId.current = u.update_id
+              const msg = u.message
+              if (msg && msg.chat.id.toString() === TG_CHAT_ID && msg.from.is_bot) {
+                setMsgs(p => [...p, { role:'bot', text: msg.text }])
+                if (!open) setUnread(n => n + 1)
+              }
+            }
+          })
+        }
+      } catch(e) {}
+    }, 3000)
+    return () => clearInterval(poll)
+  }, [open])
+
   const sendMsg = async () => {
     const text = input.trim()
     if (!text) return
@@ -2178,34 +2206,44 @@ function AIAssistant() {
     const isError = errKeywords.some(k => text.toLowerCase().includes(k)) && text.length > 8
 
     try {
-      if (backendOk) {
-        const endpoint = isError ? '/api/analyze' : '/api/chat'
-        const body = isError ? { error_text: text } : { message: text }
-        const res = await fetch(`${API_BASE}${endpoint}`, {
-          method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
-        })
-        const data = await res.json()
-        setTyping(false)
-        if (isError && data.found) {
-          setMsgs(p => [...p, { role:'bot', text: formatAnalysis(data), type:'analysis', data }])
-        } else {
-          const txt = data.message || data.solution || JSON.stringify(data, null, 2)
-          setMsgs(p => [...p, { role:'bot', text: txt }])
-        }
-      } else {
-        // Offline mode
-        await new Promise(r => setTimeout(r, 600))
-        setTyping(false)
-        if (isError) {
-          const result = analyzeOffline(text)
-          setMsgs(p => [...p, { role:'bot', text: formatAnalysis(result), type:'analysis', data:result }])
-        } else {
-          setMsgs(p => [...p, { role:'bot', text: chatOffline(text) }])
-        }
-      }
-    } catch(e) {
+      // Send to Telegram bot (Hermes)
+      await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ chat_id: TG_CHAT_ID, text })
+      })
       setTyping(false)
-      setMsgs(p => [...p, { role:'bot', text:'⚠️ Lỗi kết nối. Đang dùng offline mode.\n\n' + (isError ? formatAnalysis(analyzeOffline(text)) : chatOffline(text)) }])
+      // Response will come via polling
+    } catch(e) {
+      // Fallback to local backend
+      try {
+        if (backendOk) {
+          const endpoint = isError ? '/api/analyze' : '/api/chat'
+          const body = isError ? { error_text: text } : { message: text }
+          const res = await fetch(`${API_BASE}${endpoint}`, {
+            method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
+          })
+          const data = await res.json()
+          setTyping(false)
+          if (isError && data.found) {
+            setMsgs(p => [...p, { role:'bot', text: formatAnalysis(data), type:'analysis', data }])
+          } else {
+            const txt = data.message || data.solution || JSON.stringify(data, null, 2)
+            setMsgs(p => [...p, { role:'bot', text: txt }])
+          }
+        } else {
+          await new Promise(r => setTimeout(r, 600))
+          setTyping(false)
+          if (isError) {
+            const result = analyzeOffline(text)
+            setMsgs(p => [...p, { role:'bot', text: formatAnalysis(result), type:'analysis', data:result }])
+          } else {
+            setMsgs(p => [...p, { role:'bot', text: chatOffline(text) }])
+          }
+        }
+      } catch(e2) {
+        setTyping(false)
+        setMsgs(p => [...p, { role:'bot', text:'⚠️ Lỗi kết nối.' }])
+      }
     }
   }
 
