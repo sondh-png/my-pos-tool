@@ -914,6 +914,57 @@ def _save_chat(user_msg: str, assistant_msg: str):
 
 
 # ── DEBUG ENDPOINT (xoá sau khi fix xong) ──────────────────────────
+# ══════════════════════════════════════════════════════════════════
+# TELEGRAM BRIDGE – gửi/nhận tin qua bot để dùng trong chat box
+# ══════════════════════════════════════════════════════════════════
+
+TG_BOT_TOKEN = "8858662524:AAH2wABUPxqqcu3z2y-P2CJ5ldCmemSSMu8"
+TG_CHAT_ID   = "1214757203"
+TG_API       = f"https://api.telegram.org/bot{TG_BOT_TOKEN}"
+
+class TgSendRequest(BaseModel):
+    message: str
+
+@app.post("/api/telegram/send")
+async def tg_send(req: TgSendRequest):
+    """Gửi tin nhắn vào Telegram bot (Hermes) và lưu vào DB để poll."""
+    import httpx, time
+    async with httpx.AsyncClient(timeout=10) as client:
+        r = await client.post(f"{TG_API}/sendMessage", json={
+            "chat_id": TG_CHAT_ID,
+            "text": req.message
+        })
+    data = r.json()
+    msg_id = data.get("result", {}).get("message_id")
+    # Lưu vào chat_history
+    with get_conn() as conn:
+        conn.execute("INSERT INTO chat_history (role, content) VALUES ('user', ?)", (req.message[:2000],))
+    return {"ok": r.status_code == 200, "message_id": msg_id}
+
+@app.get("/api/telegram/poll")
+async def tg_poll(offset: int = 0):
+    """Poll updates từ Telegram để lấy reply của Hermes."""
+    import httpx
+    async with httpx.AsyncClient(timeout=10) as client:
+        r = await client.get(f"{TG_API}/getUpdates", params={"offset": offset, "timeout": 2})
+    data = r.json()
+    messages = []
+    last_id = offset
+    if data.get("ok"):
+        for u in data["result"]:
+            last_id = u["update_id"]
+            msg = u.get("message", {})
+            # Chỉ lấy reply từ bot (from.is_bot=True) hoặc text trong chat đó
+            if msg.get("chat", {}).get("id") == int(TG_CHAT_ID):
+                sender = msg.get("from", {})
+                if sender.get("is_bot"):
+                    text = msg.get("text", "")
+                    messages.append({"text": text, "update_id": u["update_id"]})
+                    with get_conn() as conn:
+                        conn.execute("INSERT INTO chat_history (role, content) VALUES ('assistant', ?)", (text[:4000],))
+    return {"messages": messages, "last_update_id": last_id}
+
+
 @app.get("/api/debug")
 async def api_debug():
     import traceback as tb
