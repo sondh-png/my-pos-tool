@@ -2168,18 +2168,18 @@ function AIAssistant() {
 
   const lastUpdateId = React.useRef(0)
 
-  // Poll backend /api/telegram/poll every 3s when chat is open
+  // Poll backend /api/telegram/poll every 3s khi chat open
   React.useEffect(() => {
     if (!open || !backendOk) return
     const poll = setInterval(async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/telegram/poll?offset=${lastUpdateId.current + 1}`)
+        const res = await fetch(`${API_BASE}/api/telegram/poll`)
         const data = await res.json()
         if (data.messages && data.messages.length > 0) {
           data.messages.forEach(m => {
             setMsgs(p => [...p, { role:'bot', text: m.text }])
           })
-          lastUpdateId.current = data.last_update_id
+          setTyping(false)
         }
       } catch(e) {}
     }, 3000)
