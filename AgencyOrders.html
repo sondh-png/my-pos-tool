@@ -2166,25 +2166,6 @@ function AIAssistant() {
 
   const handleOpen = () => { setOpen(true); setUnread(0) }
 
-  const lastUpdateId = React.useRef(0)
-
-  // Poll backend /api/telegram/poll every 3s khi chat open
-  React.useEffect(() => {
-    if (!open || !backendOk) return
-    const poll = setInterval(async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/telegram/poll`)
-        const data = await res.json()
-        if (data.messages && data.messages.length > 0) {
-          data.messages.forEach(m => {
-            setMsgs(p => [...p, { role:'bot', text: m.text }])
-          })
-          setTyping(false)
-        }
-      } catch(e) {}
-    }, 3000)
-    return () => clearInterval(poll)
-  }, [open, backendOk])
 
   const sendMsg = async () => {
     const text = input.trim()
@@ -2199,13 +2180,19 @@ function AIAssistant() {
 
     try {
       if (backendOk) {
-        // Gửi qua backend → Telegram bot (Hermes)
-        await fetch(`${API_BASE}/api/telegram/send`, {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ message: text })
+        const endpoint = isError ? '/api/analyze' : '/api/chat'
+        const body = isError ? { error_text: text } : { message: text }
+        const res = await fetch(`${API_BASE}${endpoint}`, {
+          method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
         })
+        const data = await res.json()
         setTyping(false)
-        // Reply sẽ đến qua polling
+        if (isError && data.found) {
+          setMsgs(p => [...p, { role:'bot', text: formatAnalysis(data), type:'analysis', data }])
+        } else {
+          const txt = data.message || data.solution || JSON.stringify(data, null, 2)
+          setMsgs(p => [...p, { role:'bot', text: txt }])
+        }
       } else {
         await new Promise(r => setTimeout(r, 600))
         setTyping(false)
@@ -2218,7 +2205,7 @@ function AIAssistant() {
       }
     } catch(e) {
       setTyping(false)
-      setMsgs(p => [...p, { role:'bot', text:'⚠️ Lỗi kết nối.' }])
+      setMsgs(p => [...p, { role:'bot', text:'⚠️ Lỗi kết nối. Đang dùng offline mode.\n\n' + (isError ? formatAnalysis(analyzeOffline(text)) : chatOffline(text)) }])
     }
   }
 
