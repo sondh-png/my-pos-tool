@@ -951,6 +951,48 @@ def _save_chat(user_msg: str, assistant_msg: str):
 
 
 # ── DEBUG ENDPOINT (xoá sau khi fix xong) ──────────────────────────
+# ══════════════════════════════════════════════════════════════════
+# TELEGRAM BRIDGE
+# ══════════════════════════════════════════════════════════════════
+
+TG_BOT_TOKEN = "8858662524:AAH2wABUPxqqcu3z2y-P2CJ5ldCmemSSMu8"
+TG_CHAT_ID   = "1214757203"
+TG_API       = f"https://api.telegram.org/bot{TG_BOT_TOKEN}"
+_tg_reply_queue: list = []
+
+class TgSendRequest(BaseModel):
+    message: str
+
+class TgReplyRequest(BaseModel):
+    text: str
+    source: Optional[str] = "hermes"
+
+@app.post("/api/telegram/send")
+async def tg_send(req: TgSendRequest):
+    import httpx
+    msg = f"[TOOL] {req.message}"
+    async with httpx.AsyncClient(timeout=10) as client:
+        r = await client.post(f"{TG_API}/sendMessage", json={"chat_id": TG_CHAT_ID, "text": msg})
+    with get_conn() as conn:
+        conn.execute("INSERT INTO chat_history (role, content) VALUES ('user', ?)", (req.message[:2000],))
+    return {"ok": r.status_code == 200}
+
+@app.post("/api/telegram/reply")
+async def tg_reply(req: TgReplyRequest):
+    _tg_reply_queue.append({"text": req.text})
+    if len(_tg_reply_queue) > 20:
+        _tg_reply_queue.pop(0)
+    with get_conn() as conn:
+        conn.execute("INSERT INTO chat_history (role, content) VALUES ('assistant', ?)", (req.text[:4000],))
+    return {"ok": True}
+
+@app.get("/api/telegram/poll")
+async def tg_poll():
+    replies = list(_tg_reply_queue)
+    _tg_reply_queue.clear()
+    return {"messages": replies}
+
+
 @app.get("/api/debug")
 async def api_debug():
     import traceback as tb
