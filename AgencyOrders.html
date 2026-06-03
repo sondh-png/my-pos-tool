@@ -268,8 +268,8 @@
 </head>
 <body>
 <div id="root"></div>
-<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script type="text/babel">
 const { useState, useCallback, useMemo, useEffect, useRef } = React
@@ -334,23 +334,23 @@ const SHOPS = [
 const SELLERS_INIT = [
   {
     id: 'SEL001', name: 'Shop Thời Trang Minh Anh', ownerName: 'Trần Minh Anh',
-    phone: '0901111111', email: 'minhanh@gmail.com',
-    ghnToken: 'demo_token_SEL001', ghnShopId: 5100001,
-    loginKey: 'MA2024xT9k', status: 'active',
+    phone: '0901111111', email: '',
+    ghnToken: '', ghnShopId: 0,
+    loginKey: '', status: 'active',
     createdAt: '10/01/2024', shopId: 'SH001',
   },
   {
     id: 'SEL002', name: 'Điện Tử Thành Công', ownerName: 'Lê Thành Công',
-    phone: '0902222222', email: 'thanhcong@gmail.com',
-    ghnToken: 'demo_token_SEL002', ghnShopId: 5100002,
-    loginKey: 'TC2024pW3m', status: 'active',
+    phone: '0902222222', email: '',
+    ghnToken: '', ghnShopId: 0,
+    loginKey: '', status: 'active',
     createdAt: '15/02/2024', shopId: 'SH002',
   },
   {
     id: 'SEL003', name: 'Mỹ Phẩm Ngọc Hân', ownerName: 'Nguyễn Ngọc Hân',
-    phone: '0903333333', email: 'ngochan@gmail.com',
-    ghnToken: 'demo_token_SEL003', ghnShopId: 5100003,
-    loginKey: 'NH2024qR7v', status: 'inactive',
+    phone: '0903333333', email: '',
+    ghnToken: '', ghnShopId: 0,
+    loginKey: '', status: 'inactive',
     createdAt: '03/03/2024', shopId: 'SH003',
   },
 ]
