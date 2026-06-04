@@ -834,7 +834,11 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
       cod, shippingFee: feeShipping, createdBy: 'Admin',
     }
 
-    if (BACKEND_ONLINE && sellerId && wardCode && districtId) {
+    const hasValidAddress = addrMode === 'old'
+      ? (wardCode && districtId)
+      : (newWardIdV2 && newProvinceId)
+
+    if (BACKEND_ONLINE && sellerId && hasValidAddress) {
       setCreating(true)
       // Gửi đúng 1 request với nhiều packages (items) bên trong
       apiFetch('/api/orders', { method: 'POST', body: JSON.stringify(payload) })
