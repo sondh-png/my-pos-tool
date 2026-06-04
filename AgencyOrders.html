@@ -1016,6 +1016,10 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
                 ) : (
                   /* ── Địa chỉ MỚI: Tỉnh + Phường/Xã mới (không có Quận) ── */
                   <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
+                  <div style={{ flex:'1 0 100%', background:'#FFF7ED', border:'1px solid #FED7AA', borderRadius:6, padding:'8px 12px', fontSize:12, color:'#92400E', display:'flex', gap:8 }}>
+                    <span>⚠️</span>
+                    <span>GHN đang cập nhật dữ liệu địa chỉ mới (ward_id_v2). Nếu bị lỗi "phường/xã không tồn tại", hãy dùng <b>Địa chỉ cũ</b> tạm thời.</span>
+                  </div>
                     <div style={{ flex:'1 1 140px' }}>
                       <label style={{ fontSize:13, fontWeight:500, color:C_TEXT_PRIMARY, display:'block', marginBottom:4 }}>Tỉnh - Thành phố <span style={{ color:'#EF4444' }}>*</span></label>
                       <div className="field-input" style={{ cursor:'pointer' }}>
