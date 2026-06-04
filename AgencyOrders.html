@@ -568,6 +568,11 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
   const [districtId, setDistrictId]         = useState('')
   const [wardCode, setWardCode]             = useState('')
   const [addrMode, setAddrMode]             = useState('old') // 'old' | 'new'
+  // Địa chỉ mới (free-text, không dùng dropdown)
+  const [newProvince, setNewProvince]       = useState('')
+  const [newDistrict, setNewDistrict]       = useState('')
+  const [newWard, setNewWard]               = useState('')
+  const [newWardId, setNewWardId]           = useState('')
 
   const [sndName, setSndName]               = useState('')
   const [sndPhone, setSndPhone]             = useState('')
@@ -778,14 +783,18 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
       to_name: rcvName || 'Khách hàng',
       to_phone: rcvPhone,
       to_address: rcvStreet,
-      to_ward_code: wardCode,
-      to_district_id: parseInt(districtId),
-      to_province_id: parseInt(provinceId) || null,
-      ...(addrMode === 'new' ? {
+      ...(addrMode === 'old' ? {
+        to_ward_code: wardCode,
+        to_district_id: parseInt(districtId),
+        to_province_id: parseInt(provinceId) || null,
+      } : {
+        // Địa chỉ hành chính mới
         is_new_to_address: true,
-        to_ward_id_v2: wards.find(w => w.code === wardCode)?.id || undefined,
-        to_address_v2: rcvStreet,
-      } : {}),
+        to_ward_id_v2: parseInt(newWardId) || undefined,
+        to_address_v2: [rcvStreet, newWard, newDistrict, newProvince].filter(Boolean).join(', '),
+        to_ward_code: '',
+        to_district_id: 0,
+      }),
       service_id: typeof serviceId === 'number' ? serviceId : 0,
       service_type_id: svcTypeId,
       payment_type_id: feePayer === 'receiver' ? 2 : 1,
@@ -951,32 +960,63 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
                   <input value={rcvStreet} onChange={e => setRcvStreet(e.target.value)} placeholder="Số nhà, tên đường" />
                 </div>
                 
-                <div style={{ display:'flex', gap:4 }}>
-                  <div className="field-input" style={{ flex:1, cursor:'pointer' }}>
-                    <select value={provinceId} onChange={e => { setProvinceId(e.target.value); setDistrictId(''); setWardCode(''); setDistricts(BACKEND_ONLINE ? [] : (DISTRICTS[e.target.value]||[])); setWards([]) }}
-                      style={{ flex:1, border:'none', outline:'none', fontSize:13, color:provinceId?C_TEXT_PRIMARY:'#9CA3AF', background:'transparent', appearance:'none' }}>
-                      <option value="" disabled>Tỉnh/Thành {loadingAddr?'⏳':''}</option>
-                      {provinces.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                {addrMode === 'old' ? (<>
+                  {/* Địa chỉ cũ: 3 dropdown cascading */}
+                  <div style={{ display:'flex', gap:4 }}>
+                    <div className="field-input" style={{ flex:1, cursor:'pointer' }}>
+                      <select value={provinceId} onChange={e => { setProvinceId(e.target.value); setDistrictId(''); setWardCode(''); setDistricts(BACKEND_ONLINE ? [] : (DISTRICTS[e.target.value]||[])); setWards([]) }}
+                        style={{ flex:1, border:'none', outline:'none', fontSize:13, color:provinceId?C_TEXT_PRIMARY:'#9CA3AF', background:'transparent', appearance:'none' }}>
+                        <option value="" disabled>Tỉnh/Thành {loadingAddr?'⏳':''}</option>
+                        {provinces.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      </select>
+                      <Ic.ChevDown />
+                    </div>
+                    <div className="field-input" style={{ flex:1, cursor:'pointer' }}>
+                      <select value={districtId} onChange={e => { setDistrictId(e.target.value); setWardCode(''); setWards(BACKEND_ONLINE ? [] : (WARDS[e.target.value]||[])) }} disabled={!provinceId}
+                        style={{ flex:1, border:'none', outline:'none', fontSize:13, color:districtId?C_TEXT_PRIMARY:'#9CA3AF', background:'transparent', appearance:'none' }}>
+                        <option value="" disabled>Quận/Huyện {loadingAddr?'⏳':''}</option>
+                        {(BACKEND_ONLINE ? districts : (DISTRICTS[provinceId]||[])).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                      </select>
+                      <Ic.ChevDown />
+                    </div>
+                  </div>
+                  <div className="field-input" style={{ cursor:'pointer' }}>
+                    <select value={wardCode} onChange={e => setWardCode(e.target.value)} disabled={!districtId}
+                      style={{ flex:1, border:'none', outline:'none', fontSize:13, color:wardCode?C_TEXT_PRIMARY:'#9CA3AF', background:'transparent', appearance:'none' }}>
+                      <option value="" disabled>Phường/Xã {loadingAddr?'⏳':''}</option>
+                      {(BACKEND_ONLINE ? wards : (WARDS[districtId]||[])).map(w => <option key={w.code} value={w.code}>{w.name}</option>)}
                     </select>
                     <Ic.ChevDown />
                   </div>
-                  <div className="field-input" style={{ flex:1, cursor:'pointer' }}>
-                    <select value={districtId} onChange={e => { setDistrictId(e.target.value); setWardCode(''); setWards(BACKEND_ONLINE ? [] : (WARDS[e.target.value]||[])) }} disabled={!provinceId}
-                      style={{ flex:1, border:'none', outline:'none', fontSize:13, color:districtId?C_TEXT_PRIMARY:'#9CA3AF', background:'transparent', appearance:'none' }}>
-                      <option value="" disabled>Quận/Huyện {loadingAddr?'⏳':''}</option>
-                      {(BACKEND_ONLINE ? districts : (DISTRICTS[provinceId]||[])).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                    </select>
-                    <Ic.ChevDown />
+                </>) : (<>
+                  {/* Địa chỉ mới: nhập tên text theo đơn vị hành chính mới */}
+                  <div style={{ background:'#FFF7F3', border:'1px solid #FFD4B8', borderRadius:6, padding:'6px 10px', fontSize:12, color:'#9A3412' }}>
+                    ℹ️ Nhập theo đơn vị hành chính mới (sau sáp nhập 01/07/2025). Mã Ward ID v2 lấy từ GHN.
                   </div>
-                </div>
-                <div className="field-input" style={{ cursor:'pointer' }}>
-                  <select value={wardCode} onChange={e => setWardCode(e.target.value)} disabled={!districtId}
-                    style={{ flex:1, border:'none', outline:'none', fontSize:13, color:wardCode?C_TEXT_PRIMARY:'#9CA3AF', background:'transparent', appearance:'none' }}>
-                    <option value="" disabled>Phường/Xã {loadingAddr?'⏳':''}</option>
-                    {(BACKEND_ONLINE ? wards : (WARDS[districtId]||[])).map(w => <option key={w.code} value={w.code}>{w.name}</option>)}
-                  </select>
-                  <Ic.ChevDown />
-                </div>
+                  <div style={{ display:'flex', gap:4 }}>
+                    <div className="field-input" style={{ flex:1 }}>
+                      <input value={newProvince} onChange={e => setNewProvince(e.target.value)}
+                        placeholder="Tỉnh/Thành mới (VD: TP Hồ Chí Minh)"
+                        style={{ border:'none', outline:'none', fontSize:13, background:'transparent', width:'100%' }} />
+                    </div>
+                    <div className="field-input" style={{ flex:1 }}>
+                      <input value={newDistrict} onChange={e => setNewDistrict(e.target.value)}
+                        placeholder="Quận/Huyện mới"
+                        style={{ border:'none', outline:'none', fontSize:13, background:'transparent', width:'100%' }} />
+                    </div>
+                  </div>
+                  <div className="field-input">
+                    <input value={newWard} onChange={e => setNewWard(e.target.value)}
+                      placeholder="Phường/Xã mới (VD: Phường Diên Hồng)"
+                      style={{ border:'none', outline:'none', fontSize:13, background:'transparent', flex:1 }} />
+                  </div>
+                  <div className="field-input" style={{ background:'#FFF7F3', border:'1px solid #FFD4B8' }}>
+                    <input value={newWardId} onChange={e => setNewWardId(e.target.value)}
+                      placeholder="Ward ID v2 từ GHN (VD: 1002339) — bắt buộc"
+                      type="number"
+                      style={{ border:'none', outline:'none', fontSize:13, background:'transparent', flex:1, color: newWardId ? '#111827' : '#9CA3AF' }} />
+                  </div>
+                </>)}
               </div>
             </div>
 
