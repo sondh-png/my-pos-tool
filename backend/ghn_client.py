@@ -215,61 +215,67 @@ async def fetch_districts_v3(token: str, province_id: int) -> dict:
     return resp.json()
 
 
+def _load_new_wards_data():
+    """Load danh sách phường/xã mới 2025 từ file static (nguồn: Chính phủ VN)."""
+    import os
+    path = os.path.join(os.path.dirname(__file__), "new_wards_2025.json")
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+_NEW_WARDS_DATA = None
+
+def _get_new_wards_by_province_name(province_name: str) -> list:
+    """Tìm wards mới theo tên tỉnh (match không dấu, không phân biệt hoa thường)."""
+    global _NEW_WARDS_DATA
+    if _NEW_WARDS_DATA is None:
+        _NEW_WARDS_DATA = _load_new_wards_data()
+
+    import unicodedata
+    def normalize(s):
+        s = s.lower().strip()
+        s = unicodedata.normalize('NFD', s)
+        s = ''.join(c for c in s if unicodedata.category(c) != 'Mn')
+        for prefix in ['thanh pho ', 'tinh ', 'tp ', 'tp. ']:
+            if s.startswith(prefix):
+                s = s[len(prefix):]
+        return s
+
+    target = normalize(province_name)
+    for p in _NEW_WARDS_DATA:
+        name = p.get('tentinhmoi', '')
+        if normalize(name) == target or target in normalize(name) or normalize(name) in target:
+            return [
+                {"WardCode": str(w["maphuongxa"]), "WardName": w["tenphuongxa"],
+                 "WardID": w["maphuongxa"], "ward_id_v2": w["maphuongxa"]}
+                for w in p.get("phuongxa", [])
+            ]
+    return []
+
+
 async def fetch_wards_v3_by_province(token: str, province_id: int) -> dict:
     """
-    Lấy toàn bộ Phường/Xã theo Tỉnh cho chế độ địa chỉ mới.
-    Thử GHN v3 trước; nếu không có thì load tất cả quận của tỉnh,
-    rồi gom toàn bộ phường/xã của từng quận vào 1 list phẳng.
+    Lấy Phường/Xã mới theo Tỉnh (áp dụng từ 01/07/2025).
+    Dùng data chính phủ (new_wards_2025.json) match theo tên tỉnh từ GHN.
     """
-    import asyncio
-    headers = _build_headers_no_shop(token)
-
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        # Thử v3 endpoint trước
-        try:
+    # Lấy tên tỉnh từ GHN để map sang data mới
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(
-                f"{GHN_BASE_V3}/master-data/ward",
-                headers=headers,
-                params={"province_id": province_id}
+                f"{GHN_BASE}/master-data/province",
+                headers=_build_headers_no_shop(token)
             )
-            data = resp.json()
-            if resp.status_code == 200 and data.get("code") == 200 and data.get("data"):
-                return data
-        except Exception:
-            pass
-
-        # Fallback: lấy tất cả quận của tỉnh, rồi lấy phường của từng quận
-        try:
-            dist_resp = await client.get(
-                f"{GHN_BASE}/master-data/district",
-                headers=headers,
-                params={"province_id": province_id}
+            provinces = resp.json().get("data") or []
+            province_name = next(
+                (p["ProvinceName"] for p in provinces if p["ProvinceID"] == province_id), ""
             )
-            dist_data = dist_resp.json()
-            districts = dist_data.get("data") or []
+    except Exception:
+        province_name = ""
 
-            # Fetch tất cả phường song song (giới hạn 10 quận đầu để tránh timeout)
-            async def get_wards(district_id):
-                try:
-                    r = await client.get(
-                        f"{GHN_BASE}/master-data/ward",
-                        headers=headers,
-                        params={"district_id": district_id}
-                    )
-                    d = r.json()
-                    return d.get("data") or []
-                except Exception:
-                    return []
-
-            tasks = [get_wards(d["DistrictID"]) for d in districts[:15]]
-            results = await asyncio.gather(*tasks)
-            all_wards = [w for wards in results for w in wards]
-            all_wards.sort(key=lambda w: w.get("WardName", ""))
-            return {"code": 200, "message": "Success", "data": all_wards}
-        except Exception:
-            pass
-
-    return {"code": 200, "message": "Success", "data": []}
+    wards = _get_new_wards_by_province_name(province_name) if province_name else []
+    return {"code": 200, "message": "Success", "data": wards}
 
 
 async def fetch_wards_v3(token: str, district_id: int) -> dict:
