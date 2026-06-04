@@ -111,8 +111,8 @@ class OrderCreateRequest(BaseModel):
     to_province_id: Optional[int] = None
     # Địa chỉ hành chính mới (GHN v3 – áp dụng từ 01/07/2025)
     is_new_to_address: bool = False
-    to_ward_id_v2: Optional[str] = None     # thay to_ward_code khi dùng địa chỉ mới
-    to_address_v2: Optional[str] = None     # thay to_address khi dùng địa chỉ mới
+    to_ward_id_v2: Optional[int] = None     # integer ward ID mới (VD: 70119087)
+    to_address_v2: Optional[str] = None     # địa chỉ chi tiết khi dùng đơn vị mới
     # Package
     weight: int = 200
     length: int = 10

@@ -955,13 +955,24 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
                 </div>
               } />
               <div style={{ display:'flex', flexDirection:'column', gap:8, padding:'10px 12px' }}>
+                {/* Tên + SĐT — luôn hiển thị dù địa chỉ cũ hay mới */}
+                <div style={{ display:'flex', gap:4 }}>
+                  <div className="field-input" style={{ flex:1 }}>
+                    <input value={rcvName} onChange={e => setRcvName(e.target.value)} placeholder="Tên người nhận" />
+                  </div>
+                  <div className="field-input" style={{ flex:1, position:'relative' }}>
+                    <input value={rcvPhone} onChange={e => setRcvPhone(e.target.value)} placeholder="Số điện thoại" style={{ paddingRight:72 }} />
+                    <div className="tlhh-badge" style={{ position:'absolute', right:8 }}>TLHH:0%</div>
+                  </div>
+                </div>
+
                 {/* Địa chỉ nhận */}
                 <div>
                   <label style={{ fontSize:13, fontWeight:500, color:C_TEXT_PRIMARY, display:'block', marginBottom:4 }}>
                     Địa chỉ nhận <span style={{ color:'#EF4444' }}>*</span>
                   </label>
                   <div className="field-input">
-                    <input value={rcvStreet} onChange={e => setRcvStreet(e.target.value)} placeholder="Nhập địa chỉ người nhận" />
+                    <input value={rcvStreet} onChange={e => setRcvStreet(e.target.value)} placeholder="Số nhà, tên đường" />
                   </div>
                 </div>
 
