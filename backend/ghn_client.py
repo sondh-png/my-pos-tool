@@ -216,19 +216,59 @@ async def fetch_districts_v3(token: str, province_id: int) -> dict:
 
 
 async def fetch_wards_v3_by_province(token: str, province_id: int) -> dict:
-    """Lấy Phường/Xã mới theo Tỉnh (bỏ qua cấp Quận/Huyện) — địa chỉ hành chính mới."""
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    """
+    Lấy toàn bộ Phường/Xã theo Tỉnh cho chế độ địa chỉ mới.
+    Thử GHN v3 trước; nếu không có thì load tất cả quận của tỉnh,
+    rồi gom toàn bộ phường/xã của từng quận vào 1 list phẳng.
+    """
+    import asyncio
+    headers = _build_headers_no_shop(token)
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        # Thử v3 endpoint trước
         try:
             resp = await client.get(
                 f"{GHN_BASE_V3}/master-data/ward",
-                headers=_build_headers_no_shop(token),
+                headers=headers,
                 params={"province_id": province_id}
             )
             data = resp.json()
-            if resp.status_code == 200 and data.get("code") == 200:
+            if resp.status_code == 200 and data.get("code") == 200 and data.get("data"):
                 return data
         except Exception:
             pass
+
+        # Fallback: lấy tất cả quận của tỉnh, rồi lấy phường của từng quận
+        try:
+            dist_resp = await client.get(
+                f"{GHN_BASE}/master-data/district",
+                headers=headers,
+                params={"province_id": province_id}
+            )
+            dist_data = dist_resp.json()
+            districts = dist_data.get("data") or []
+
+            # Fetch tất cả phường song song (giới hạn 10 quận đầu để tránh timeout)
+            async def get_wards(district_id):
+                try:
+                    r = await client.get(
+                        f"{GHN_BASE}/master-data/ward",
+                        headers=headers,
+                        params={"district_id": district_id}
+                    )
+                    d = r.json()
+                    return d.get("data") or []
+                except Exception:
+                    return []
+
+            tasks = [get_wards(d["DistrictID"]) for d in districts[:15]]
+            results = await asyncio.gather(*tasks)
+            all_wards = [w for wards in results for w in wards]
+            all_wards.sort(key=lambda w: w.get("WardName", ""))
+            return {"code": 200, "message": "Success", "data": all_wards}
+        except Exception:
+            pass
+
     return {"code": 200, "message": "Success", "data": []}
 
 
