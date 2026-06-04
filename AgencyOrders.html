@@ -1510,20 +1510,22 @@ function OrderDetailDrawer({ order, onClose }) {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (order && order.trackingCode && order.trackingCode.length > 3) {
+    setData(null); setError('')
+    // Chỉ gọi GHN khi có order_code thật (bắt đầu bằng chữ, không phải POS...)
+    const ghnCode = order?.orderCode || order?.trackingCode
+    const isRealGhnCode = ghnCode && !ghnCode.startsWith('POS') && ghnCode.length > 3
+    if (order && isRealGhnCode) {
       setLoading(true)
-      setError('')
       const session = getSession()
       const sId = session?.role === 'super_admin' ? (order.shopId || '') : session?.sellerId
-      apiFetch(`/api/orders/${order.trackingCode}?seller_id=${sId}`)
+      apiFetch(`/api/orders/${ghnCode}?seller_id=${sId}`)
         .then(r => {
           if (r.ok && r.data) setData(r.data)
           else setError(r.error || 'Lỗi tải chi tiết đơn')
         })
         .finally(() => setLoading(false))
-    } else {
-      setData(null)
-      setError('')
+    } else if (order && !isRealGhnCode) {
+      setError('Đơn chưa được tạo trên GHN — kiểm tra lại thông tin địa chỉ và thử Lên đơn lại.')
     }
   }, [order])
 
@@ -1633,6 +1635,7 @@ function AgencyOrdersPage({ session }) {
                 id: o.client_code,
                 shopId: o.seller_id,
                 trackingCode: o.order_code || o.client_code,
+                orderCode: o.order_code || null,   // GHN order code thật (null = chưa tạo trên GHN)
                 status: o.status,
                 weight: o.weight,
                 receiverName: o.receiver_name,
