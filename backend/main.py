@@ -17,7 +17,7 @@ from database import init_db, seed_initial_knowledge, seed_demo_sellers, get_con
 from ghn_client import (
     learn_endpoints, call_ghn_api,
     fetch_provinces, fetch_districts, fetch_wards,
-    fetch_provinces_v3, fetch_districts_v3, fetch_wards_v3,
+    fetch_provinces_v3, fetch_districts_v3, fetch_wards_v3, fetch_wards_v3_by_province,
     get_available_services, get_shipping_fee,
     create_order, get_order_detail, cancel_orders,
     get_print_token, get_tracking_logs, get_shop_info,
@@ -481,6 +481,13 @@ async def api_districts_v3(seller_id: str, province_id: int):
 async def api_wards_v3(seller_id: str, district_id: int):
     token = _get_location_token(seller_id)
     return await fetch_wards_v3(token, district_id)
+
+
+@app.get("/api/ghn/wards/v3/by-province")
+async def api_wards_v3_by_province(seller_id: str, province_id: int):
+    """Lấy Phường/Xã mới theo Tỉnh (không qua Quận) — dành cho địa chỉ hành chính mới."""
+    token = _get_location_token(seller_id)
+    return await fetch_wards_v3_by_province(token, province_id)
 
 
 # ══════════════════════════════════════════════════════════════════

@@ -215,6 +215,23 @@ async def fetch_districts_v3(token: str, province_id: int) -> dict:
     return resp.json()
 
 
+async def fetch_wards_v3_by_province(token: str, province_id: int) -> dict:
+    """Lấy Phường/Xã mới theo Tỉnh (bỏ qua cấp Quận/Huyện) — địa chỉ hành chính mới."""
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        try:
+            resp = await client.get(
+                f"{GHN_BASE_V3}/master-data/ward",
+                headers=_build_headers_no_shop(token),
+                params={"province_id": province_id}
+            )
+            data = resp.json()
+            if resp.status_code == 200 and data.get("code") == 200:
+                return data
+        except Exception:
+            pass
+    return {"code": 200, "message": "Success", "data": []}
+
+
 async def fetch_wards_v3(token: str, district_id: int) -> dict:
     """Lấy Phường/Xã theo đơn vị hành chính mới (v3)."""
     async with httpx.AsyncClient(timeout=10.0) as client:
