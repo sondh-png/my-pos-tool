@@ -567,6 +567,7 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
   const [provinceId, setProvinceId]         = useState('')
   const [districtId, setDistrictId]         = useState('')
   const [wardCode, setWardCode]             = useState('')
+  const [addrMode, setAddrMode]             = useState('old') // 'old' | 'new'
 
   const [sndName, setSndName]               = useState('')
   const [sndPhone, setSndPhone]             = useState('')
@@ -612,16 +613,19 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
     setServiceId(first)
   }
 
-  // Load real provinces from backend on open
+  // Load real provinces from backend on open (hoặc khi đổi mode địa chỉ)
   useEffect(() => {
     if (!open) return
     const session = getSession()
     const sellerId = session?.sellerId || null
     if (!sellerId) return
-    apiFetch(`/api/ghn/provinces?seller_id=${sellerId}`)
+    setProvinceId(''); setDistrictId(''); setWardCode('')
+    setDistricts([]); setWards([])
+    const ep = addrMode === 'new' ? '/api/ghn/provinces/v3' : '/api/ghn/provinces'
+    apiFetch(`${ep}?seller_id=${sellerId}`)
       .then(r => { if (r.ok && r.data.data) setProvinces(r.data.data.map(p => ({ id: p.ProvinceID, name: p.ProvinceName }))) })
       .catch(() => {})
-  }, [open])
+  }, [open, addrMode])
 
   // Load districts when province changes
   useEffect(() => {
@@ -630,10 +634,11 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
     const sellerId = session?.sellerId || null
     if (!sellerId) return
     setLoadingAddr(true)
-    apiFetch(`/api/ghn/districts?seller_id=${sellerId}&province_id=${provinceId}`)
+    const ep = addrMode === 'new' ? '/api/ghn/districts/v3' : '/api/ghn/districts'
+    apiFetch(`${ep}?seller_id=${sellerId}&province_id=${provinceId}`)
       .then(r => { if (r.ok && r.data.data) setDistricts(r.data.data.map(d => ({ id: d.DistrictID, name: d.DistrictName }))) })
       .finally(() => setLoadingAddr(false))
-  }, [provinceId])
+  }, [provinceId, addrMode])
 
   // Load wards when district changes
   useEffect(() => {
@@ -642,10 +647,11 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
     const sellerId = session?.sellerId || null
     if (!sellerId) return
     setLoadingAddr(true)
-    apiFetch(`/api/ghn/wards?seller_id=${sellerId}&district_id=${districtId}`)
-      .then(r => { if (r.ok && r.data.data) setWards(r.data.data.map(w => ({ code: w.WardCode, name: w.WardName }))) })
+    const ep = addrMode === 'new' ? '/api/ghn/wards/v3' : '/api/ghn/wards'
+    apiFetch(`${ep}?seller_id=${sellerId}&district_id=${districtId}`)
+      .then(r => { if (r.ok && r.data.data) setWards(r.data.data.map(w => ({ code: w.WardCode, name: w.WardName, id: w.WardID }))) })
       .finally(() => setLoadingAddr(false))
-  }, [districtId])
+  }, [districtId, addrMode])
 
   const totalWeight = useMemo(() => productLines.reduce((s, l) => s + l.qty * (l.weight || 0), 0), [productLines])
   const totalConvertedWt = useMemo(() => productLines.reduce((s, l) => s + l.qty * Math.max(l.weight || 0, ((l.dimD||0) * (l.dimR||0) * (l.dimC||0)) / 5000), 0), [productLines])
@@ -775,6 +781,11 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
       to_ward_code: wardCode,
       to_district_id: parseInt(districtId),
       to_province_id: parseInt(provinceId) || null,
+      ...(addrMode === 'new' ? {
+        is_new_to_address: true,
+        to_ward_id_v2: wards.find(w => w.code === wardCode)?.id || undefined,
+        to_address_v2: rcvStreet,
+      } : {}),
       service_id: typeof serviceId === 'number' ? serviceId : 0,
       service_type_id: svcTypeId,
       payment_type_id: feePayer === 'receiver' ? 2 : 1,
@@ -902,6 +913,31 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
             <div className="drawer-card">
               <CardHdr icon={<Ic.User />} label="Bên nhận" />
               <div style={{ display:'flex', flexDirection:'column', gap:4, padding:'8px 12px' }}>
+
+                {/* Toggle địa chỉ cũ / mới */}
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <span style={{ fontSize:12, color:'#6B7280', flexShrink:0 }}>Loại địa chỉ:</span>
+                  <div style={{ display:'flex', gap:1, background:'#F3F4F6', borderRadius:6, padding:2 }}>
+                    {['old','new'].map(mode => (
+                      <button key={mode}
+                        onClick={() => setAddrMode(mode)}
+                        style={{
+                          padding:'3px 12px', borderRadius:5, border:'none', cursor:'pointer',
+                          fontSize:12, fontWeight:600, lineHeight:'18px',
+                          background: addrMode===mode ? (mode==='new' ? '#FF5200' : '#fff') : 'transparent',
+                          color: addrMode===mode ? (mode==='new' ? '#fff' : '#111827') : '#6B7280',
+                          boxShadow: addrMode===mode ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+                          transition:'all 0.15s',
+                        }}>
+                        {mode==='old' ? 'Địa chỉ cũ' : 'Địa chỉ mới'}
+                      </button>
+                    ))}
+                  </div>
+                  {addrMode==='new' && (
+                    <span style={{ fontSize:11, color:'#FF5200', fontWeight:500 }}>Hiệu lực từ 01/07/2025</span>
+                  )}
+                </div>
+
                 <div style={{ display:'flex', gap:4 }}>
                   <div className="field-input" style={{ flex:1 }}>
                     <input value={rcvName} onChange={e => setRcvName(e.target.value)} placeholder="Tên người nhận" />
