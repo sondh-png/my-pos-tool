@@ -17,6 +17,7 @@ from database import init_db, seed_initial_knowledge, seed_demo_sellers, get_con
 from ghn_client import (
     learn_endpoints, call_ghn_api,
     fetch_provinces, fetch_districts, fetch_wards,
+    fetch_provinces_v3, fetch_districts_v3, fetch_wards_v3,
     get_available_services, get_shipping_fee,
     create_order, get_order_detail, cancel_orders,
     get_print_token, get_tracking_logs, get_shop_info,
@@ -108,6 +109,10 @@ class OrderCreateRequest(BaseModel):
     to_ward_code: str
     to_district_id: int
     to_province_id: Optional[int] = None
+    # Địa chỉ hành chính mới (GHN v3 – áp dụng từ 01/07/2025)
+    is_new_to_address: bool = False
+    to_ward_id_v2: Optional[str] = None     # thay to_ward_code khi dùng địa chỉ mới
+    to_address_v2: Optional[str] = None     # thay to_address khi dùng địa chỉ mới
     # Package
     weight: int = 200
     length: int = 10
@@ -459,6 +464,25 @@ async def api_wards(seller_id: str, district_id: int):
     return await fetch_wards(token, district_id)
 
 
+# ── Địa chỉ hành chính mới v3 (áp dụng từ 01/07/2025) ──────────────
+@app.get("/api/ghn/provinces/v3")
+async def api_provinces_v3(seller_id: str):
+    token = _get_location_token(seller_id)
+    return await fetch_provinces_v3(token)
+
+
+@app.get("/api/ghn/districts/v3")
+async def api_districts_v3(seller_id: str, province_id: int):
+    token = _get_location_token(seller_id)
+    return await fetch_districts_v3(token, province_id)
+
+
+@app.get("/api/ghn/wards/v3")
+async def api_wards_v3(seller_id: str, district_id: int):
+    token = _get_location_token(seller_id)
+    return await fetch_wards_v3(token, district_id)
+
+
 # ══════════════════════════════════════════════════════════════════
 # SHIPPING FEE & SERVICES
 # ══════════════════════════════════════════════════════════════════
@@ -556,6 +580,14 @@ async def api_create_order(req: OrderCreateRequest):
     if req.from_name: ghn_payload["from_name"] = req.from_name
     if req.from_phone: ghn_payload["from_phone"] = req.from_phone
     if req.from_address: ghn_payload["from_address"] = req.from_address
+
+    # Địa chỉ hành chính mới (v3)
+    if req.is_new_to_address:
+        ghn_payload["is_new_to_address"] = True
+        if req.to_ward_id_v2:
+            ghn_payload["to_ward_id_v2"] = req.to_ward_id_v2
+        if req.to_address_v2:
+            ghn_payload["to_address_v2"] = req.to_address_v2
 
     result = await create_order(token, shop_id, ghn_payload, seller_id=req.seller_id)
 

@@ -9,6 +9,7 @@ from database import get_conn
 
 GHN_BASE    = "https://online-gateway.ghn.vn/shiip/public-api"
 GHN_BASE_V2 = f"{GHN_BASE}/v2"
+GHN_BASE_V3 = f"{GHN_BASE}/v3"
 
 # ── Sandbox / Production switch ────────────────────────────────────
 SANDBOX_BASE    = "https://dev-online-gateway.ghn.vn/shiip/public-api"
@@ -155,6 +156,79 @@ async def fetch_districts(token: str, province_id: int) -> dict:
 
 async def fetch_wards(token: str, district_id: int) -> dict:
     async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.get(
+            f"{GHN_BASE}/master-data/ward",
+            headers=_build_headers_no_shop(token),
+            params={"district_id": district_id}
+        )
+    return resp.json()
+
+
+# ══════════════════════════════════════════════════════════
+# MASTER DATA V3 (đơn vị hành chính mới – áp dụng từ 01/07/2025)
+# GHN xác nhận "không phát sinh API mới" → cùng endpoint, GHN tự
+# trả data mới sau ngày hiệu lực. URL v3 cần xác nhận thêm với GHN.
+# Hiện tại fallback về cùng endpoint với v1 để đảm bảo hoạt động.
+# Khi GHN công bố URL v3 chính xác, chỉ cần đổi GHN_BASE_V3 ở trên.
+# ══════════════════════════════════════════════════════════
+
+async def fetch_provinces_v3(token: str) -> dict:
+    """Lấy Tỉnh/Thành theo đơn vị hành chính mới (v3)."""
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        # Thử /v3/ trước; nếu GHN chưa có thì fallback /master-data/
+        try:
+            resp = await client.get(
+                f"{GHN_BASE_V3}/master-data/province",
+                headers=_build_headers_no_shop(token)
+            )
+            data = resp.json()
+            if resp.status_code == 200 and data.get("code") == 200:
+                return data
+        except Exception:
+            pass
+        resp = await client.get(
+            f"{GHN_BASE}/master-data/province",
+            headers=_build_headers_no_shop(token)
+        )
+    return resp.json()
+
+
+async def fetch_districts_v3(token: str, province_id: int) -> dict:
+    """Lấy Quận/Huyện theo đơn vị hành chính mới (v3)."""
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        try:
+            resp = await client.get(
+                f"{GHN_BASE_V3}/master-data/district",
+                headers=_build_headers_no_shop(token),
+                params={"province_id": province_id}
+            )
+            data = resp.json()
+            if resp.status_code == 200 and data.get("code") == 200:
+                return data
+        except Exception:
+            pass
+        resp = await client.get(
+            f"{GHN_BASE}/master-data/district",
+            headers=_build_headers_no_shop(token),
+            params={"province_id": province_id}
+        )
+    return resp.json()
+
+
+async def fetch_wards_v3(token: str, district_id: int) -> dict:
+    """Lấy Phường/Xã theo đơn vị hành chính mới (v3)."""
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        try:
+            resp = await client.get(
+                f"{GHN_BASE_V3}/master-data/ward",
+                headers=_build_headers_no_shop(token),
+                params={"district_id": district_id}
+            )
+            data = resp.json()
+            if resp.status_code == 200 and data.get("code") == 200:
+                return data
+        except Exception:
+            pass
         resp = await client.get(
             f"{GHN_BASE}/master-data/ward",
             headers=_build_headers_no_shop(token),

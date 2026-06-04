@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ConfigProvider } from 'antd'
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons'
 import { agencyAdminTheme } from '../../../theme/platforms'
@@ -147,6 +147,48 @@ function CreateOrderDrawer({ open, onClose }: { open: boolean; onClose: () => vo
   const [partialDeliver, setPartialDeliver]          = useState(false)
   const [collectOnFail, setCollectOnFail]            = useState(true)
   const [collectOnFailAmt, setCollectOnFailAmt]      = useState(0)
+
+  // ── Địa chỉ nhận hàng ─────────────────────────────────────────
+  type Province = { ProvinceID: number; ProvinceName: string }
+  type District = { DistrictID: number; DistrictName: string }
+  type Ward     = { WardCode: string; WardName: string }
+
+  const [addrMode, setAddrMode]       = useState<'old' | 'new'>('old')
+  const [provinces, setProvinces]     = useState<Province[]>([])
+  const [districts, setDistricts]     = useState<District[]>([])
+  const [wards, setWards]             = useState<Ward[]>([])
+  const [selProvince, setSelProvince] = useState<number>(0)
+  const [selDistrict, setSelDistrict] = useState<number>(0)
+  const [selWard, setSelWard]         = useState<string>('')
+
+  // Tải tỉnh/thành khi mở drawer hoặc đổi mode
+  useEffect(() => {
+    if (!open) return
+    setProvinces([]); setDistricts([]); setWards([])
+    setSelProvince(0); setSelDistrict(0); setSelWard('')
+    const url = addrMode === 'old'
+      ? `/api/ghn/provinces?seller_id=${selectedShopId}`
+      : `/api/ghn/provinces/v3?seller_id=${selectedShopId}`
+    fetch(url).then(r => r.json()).then(d => { if (d?.data) setProvinces(d.data) }).catch(() => {})
+  }, [open, addrMode, selectedShopId])
+
+  // Tải quận/huyện khi chọn tỉnh
+  useEffect(() => {
+    if (!selProvince) { setDistricts([]); setSelDistrict(0); setWards([]); setSelWard(''); return }
+    const url = addrMode === 'old'
+      ? `/api/ghn/districts?seller_id=${selectedShopId}&province_id=${selProvince}`
+      : `/api/ghn/districts/v3?seller_id=${selectedShopId}&province_id=${selProvince}`
+    fetch(url).then(r => r.json()).then(d => { if (d?.data) setDistricts(d.data) }).catch(() => {})
+  }, [selProvince, addrMode])
+
+  // Tải phường/xã khi chọn quận
+  useEffect(() => {
+    if (!selDistrict) { setWards([]); setSelWard(''); return }
+    const url = addrMode === 'old'
+      ? `/api/ghn/wards?seller_id=${selectedShopId}&district_id=${selDistrict}`
+      : `/api/ghn/wards/v3?seller_id=${selectedShopId}&district_id=${selDistrict}`
+    fetch(url).then(r => r.json()).then(d => { if (d?.data) setWards(d.data) }).catch(() => {})
+  }, [selDistrict, addrMode])
 
   const selectedShop = agencyShops.find(s => s.id === selectedShopId) ?? agencyShops[0]
   const shopServices = ((selectedShop as any)?.configuredServices ?? []).map((cs: { serviceId: string; demoFee: number }) => ({
@@ -371,16 +413,47 @@ function CreateOrderDrawer({ open, onClose }: { open: boolean; onClose: () => vo
             <div style={card}>
               <CardHeader icon={<IcUser />} label="Bên nhận" />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: 8 }}>
+
+                {/* Toggle địa chỉ cũ / mới */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 0' }}>
+                  <span style={{ fontSize: 12, color: C_TEXT_SECONDARY, flexShrink: 0, lineHeight: '20px' }}>Loại địa chỉ:</span>
+                  <div style={{ display: 'flex', gap: 1, background: '#F3F4F6', borderRadius: 6, padding: 2 }}>
+                    {(['old', 'new'] as const).map(mode => (
+                      <button key={mode}
+                        onClick={() => { setAddrMode(mode); setSelProvince(0); setSelDistrict(0); setSelWard('') }}
+                        style={{
+                          padding: '3px 12px', borderRadius: 5, border: 'none', cursor: 'pointer',
+                          fontSize: 12, fontWeight: 600, lineHeight: '18px', whiteSpace: 'nowrap',
+                          background: addrMode === mode ? (mode === 'new' ? C_ACTION : '#fff') : 'transparent',
+                          color: addrMode === mode ? (mode === 'new' ? '#fff' : C_TEXT_PRIMARY) : C_TEXT_SECONDARY,
+                          boxShadow: addrMode === mode ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+                          transition: 'all 0.15s',
+                        }}
+                      >
+                        {mode === 'old' ? 'Địa chỉ cũ' : 'Địa chỉ mới'}
+                      </button>
+                    ))}
+                  </div>
+                  {addrMode === 'new' && (
+                    <span style={{ fontSize: 11, color: C_ACTION, fontWeight: 500, lineHeight: '20px' }}>
+                      Hiệu lực từ 01/07/2025
+                    </span>
+                  )}
+                </div>
+
+                {/* Tên + SĐT */}
                 <div style={{ display: 'flex', gap: 4 }}>
                   <div style={{ flex: 1, background: '#F9FAFB', borderRadius: 6, padding: '6px 12px' }}>
                     <input
                       value={rcvName} onChange={(e) => setRcvName(e.target.value)}
+                      placeholder="Tên người nhận"
                       style={{ width: '100%', border: 'none', outline: 'none', fontSize: 14, color: C_TEXT_PRIMARY, background: 'transparent', lineHeight: '20px' }}
                     />
                   </div>
                   <div style={{ flex: 1, minWidth: 200, background: '#F9FAFB', borderRadius: 6, padding: '6px 12px', position: 'relative', display: 'flex', alignItems: 'center' }}>
                     <input
                       value={rcvPhone} onChange={(e) => setRcvPhone(e.target.value)}
+                      placeholder="Số điện thoại"
                       style={{ flex: 1, border: 'none', outline: 'none', fontSize: 14, color: C_TEXT_PRIMARY, background: 'transparent', lineHeight: '20px', paddingRight: 70 }}
                     />
                     <div style={{ position: 'absolute', right: 5, top: '50%', transform: 'translateY(-50%)', background: '#D9F7E5', height: 22, padding: '0 6px', borderRadius: 6, display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
@@ -389,8 +462,51 @@ function CreateOrderDrawer({ open, onClose }: { open: boolean; onClose: () => vo
                     </div>
                   </div>
                 </div>
+
+                {/* Số nhà, tên đường */}
                 <FieldInput value={rcvStreet} onChange={setRcvStreet} placeholder="Số nhà, tên đường" />
-                <FieldDropdown value="Phường Diên Hồng, Hồ Chí Minh" />
+
+                {/* Tỉnh/Thành */}
+                <div style={{ background: '#F9FAFB', borderRadius: 6, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <select
+                    value={selProvince}
+                    onChange={e => { setSelProvince(Number(e.target.value)); setSelDistrict(0); setSelWard('') }}
+                    style={{ flex: 1, border: 'none', outline: 'none', fontSize: 14, color: selProvince ? C_TEXT_PRIMARY : '#9CA3AF', background: 'transparent', cursor: 'pointer', lineHeight: '20px' }}
+                  >
+                    <option value={0}>-- Chọn Tỉnh/Thành --</option>
+                    {provinces.map(p => <option key={p.ProvinceID} value={p.ProvinceID}>{p.ProvinceName}</option>)}
+                  </select>
+                  <IcChevronDown size={18} />
+                </div>
+
+                {/* Quận/Huyện */}
+                <div style={{ background: selProvince ? '#F9FAFB' : '#F3F4F6', borderRadius: 6, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 8, opacity: selProvince ? 1 : 0.55, transition: 'opacity 0.15s' }}>
+                  <select
+                    value={selDistrict}
+                    onChange={e => { setSelDistrict(Number(e.target.value)); setSelWard('') }}
+                    disabled={!selProvince}
+                    style={{ flex: 1, border: 'none', outline: 'none', fontSize: 14, color: selDistrict ? C_TEXT_PRIMARY : '#9CA3AF', background: 'transparent', cursor: selProvince ? 'pointer' : 'default', lineHeight: '20px' }}
+                  >
+                    <option value={0}>-- Chọn Quận/Huyện --</option>
+                    {districts.map(d => <option key={d.DistrictID} value={d.DistrictID}>{d.DistrictName}</option>)}
+                  </select>
+                  <IcChevronDown size={18} />
+                </div>
+
+                {/* Phường/Xã */}
+                <div style={{ background: selDistrict ? '#F9FAFB' : '#F3F4F6', borderRadius: 6, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 8, opacity: selDistrict ? 1 : 0.55, transition: 'opacity 0.15s' }}>
+                  <select
+                    value={selWard}
+                    onChange={e => setSelWard(e.target.value)}
+                    disabled={!selDistrict}
+                    style={{ flex: 1, border: 'none', outline: 'none', fontSize: 14, color: selWard ? C_TEXT_PRIMARY : '#9CA3AF', background: 'transparent', cursor: selDistrict ? 'pointer' : 'default', lineHeight: '20px' }}
+                  >
+                    <option value="">-- Chọn Phường/Xã --</option>
+                    {wards.map(w => <option key={w.WardCode} value={w.WardCode}>{w.WardName}</option>)}
+                  </select>
+                  <IcChevronDown size={18} />
+                </div>
+
               </div>
             </div>
 
