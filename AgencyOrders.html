@@ -1543,12 +1543,31 @@ function OrderDetailDrawer({ order, onClose }) {
               <div className="drawer-card" style={{ padding:16 }}>
                 <div style={{ display:'flex', justifyContent:'space-between', marginBottom:12 }}>
                   <span style={{ fontSize:13, color:C_TEXT_SECONDARY }}>Mã đơn GHN</span>
-                  <span style={{ fontSize:14, fontWeight:700, color:C_LINK }}>{order.trackingCode}</span>
+                  <span style={{ fontSize:14, fontWeight:700, color: order.orderCode ? C_LINK : '#9CA3AF' }}>
+                    {order.orderCode || 'Chưa có (đơn lỗi)'}
+                  </span>
                 </div>
-                <div style={{ display:'flex', justifyContent:'space-between' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', marginBottom: order.orderCode ? 0 : 12 }}>
                   <span style={{ fontSize:13, color:C_TEXT_SECONDARY }}>Trạng thái</span>
                   <span className="status-badge" style={{ background:getStatusColor(order.status).bg, color:getStatusColor(order.status).color }}>{getStatusLabel(order.status)}</span>
                 </div>
+                {!order.orderCode && (
+                  <button
+                    onClick={() => {
+                      if (!confirm('Xoá đơn lỗi này khỏi hệ thống?')) return
+                      const session = getSession()
+                      const sId = session?.sellerId || ''
+                      apiFetch(`/api/orders/pending/${order.id}?seller_id=${sId}`, { method: 'DELETE' })
+                        .then(r => {
+                          if (r.ok) { alert('Đã xoá đơn lỗi'); onClose(); window.location.reload() }
+                          else alert('Lỗi: ' + (r.error || 'Không xoá được'))
+                        })
+                    }}
+                    style={{ marginTop:8, width:'100%', padding:'6px 12px', background:'#FEE2E2', border:'1px solid #FCA5A5', borderRadius:6, cursor:'pointer', fontSize:13, color:'#DC2626', fontWeight:500 }}
+                  >
+                    🗑️ Xoá đơn lỗi này
+                  </button>
+                )}
               </div>
 
               <div className="drawer-card" style={{ padding:16 }}>

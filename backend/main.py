@@ -609,8 +609,13 @@ async def api_create_order(req: OrderCreateRequest):
             "ghn_data": ghn_data,
         }
     else:
-        # Trả về lỗi từ GHN
+        # Lưu lỗi GHN vào DB để debug
         ghn_msg = result["data"].get("message") or result.get("error") or "Lỗi không xác định"
+        with get_conn() as conn:
+            conn.execute(
+                "UPDATE orders SET note=? WHERE client_code=? AND seller_id=?",
+                (f"GHN_ERROR: {ghn_msg}", client_code, req.seller_id)
+            )
         raise HTTPException(400, f"GHN từ chối đơn hàng: {ghn_msg}")
 
 
@@ -660,6 +665,22 @@ async def api_get_order(order_code: str, seller_id: str):
         return {"success": True, "data": ghn_data}
     else:
         raise HTTPException(400, result["data"].get("message") or "Không thể tra cứu đơn")
+
+
+@app.delete("/api/orders/pending/{client_code}")
+async def api_delete_pending_order(client_code: str, seller_id: str):
+    """Xoá đơn pending (chưa có GHN code) khỏi DB."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT id, order_code FROM orders WHERE client_code=? AND seller_id=?",
+            (client_code, seller_id)
+        ).fetchone()
+        if not row:
+            raise HTTPException(404, "Đơn hàng không tồn tại")
+        if row["order_code"]:
+            raise HTTPException(400, "Chỉ xoá được đơn chưa có mã GHN (pending)")
+        conn.execute("DELETE FROM orders WHERE client_code=? AND seller_id=?", (client_code, seller_id))
+    return {"success": True, "deleted": client_code}
 
 
 @app.post("/api/orders/cancel")
