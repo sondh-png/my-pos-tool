@@ -173,21 +173,10 @@ async def fetch_wards(token: str, district_id: int) -> dict:
 # ══════════════════════════════════════════════════════════
 
 async def fetch_provinces_v3(token: str) -> dict:
-    """Lấy Tỉnh/Thành theo đơn vị hành chính mới (v3)."""
+    """Lấy danh sách Tỉnh/Thành mới (v3) — đơn vị hành chính sau sáp nhập 01/07/2025."""
     async with httpx.AsyncClient(timeout=10.0) as client:
-        # Thử /v3/ trước; nếu GHN chưa có thì fallback /master-data/
-        try:
-            resp = await client.get(
-                f"{GHN_BASE_V3}/master-data/province",
-                headers=_build_headers_no_shop(token)
-            )
-            data = resp.json()
-            if resp.status_code == 200 and data.get("code") == 200:
-                return data
-        except Exception:
-            pass
         resp = await client.get(
-            f"{GHN_BASE}/master-data/province",
+            f"{GHN_BASE_V3}/master-data/province/all",
             headers=_build_headers_no_shop(token)
         )
     return resp.json()
@@ -257,61 +246,17 @@ def _get_new_wards_by_province_name(province_name: str) -> list:
 
 async def fetch_wards_v3_by_province(token: str, province_id: int) -> dict:
     """
-    Lấy Phường/Xã theo Tỉnh cho chế độ địa chỉ mới.
-    Ưu tiên: data chính phủ 2025 → fallback GHN API (gom tất cả ward của tỉnh).
+    Lấy danh sách Phường/Xã mới theo Tỉnh (v3).
+    Gọi trực tiếp GHN v3 API: POST /v3/master-data/ward/all-by-province-id
+    province_id ở đây là ID mới của v3 (VD: 1000033), không phải ID cũ (202).
     """
-    import asyncio
-    headers = _build_headers_no_shop(token)
-
-    # Bước 1: Lấy tên tỉnh từ GHN
-    province_name = ""
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(f"{GHN_BASE}/master-data/province", headers=headers)
-            provinces = resp.json().get("data") or []
-            province_name = next(
-                (p["ProvinceName"] for p in provinces if p["ProvinceID"] == province_id), ""
-            )
-    except Exception:
-        pass
-
-    # Bước 2: Thử match trong data 2025
-    if province_name:
-        wards_2025 = _get_new_wards_by_province_name(province_name)
-        if wards_2025:
-            return {"code": 200, "message": "Success", "data": wards_2025}
-
-    # Bước 3: Fallback — gom tất cả ward của tỉnh từ GHN API cũ
-    # (Cho các tỉnh chưa có trong data 2025 hoặc chưa sáp nhập)
-    try:
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            dist_resp = await client.get(
-                f"{GHN_BASE}/master-data/district",
-                headers=headers,
-                params={"province_id": province_id}
-            )
-            districts = dist_resp.json().get("data") or []
-
-            async def get_wards(district_id):
-                try:
-                    r = await client.get(
-                        f"{GHN_BASE}/master-data/ward",
-                        headers=headers,
-                        params={"district_id": district_id}
-                    )
-                    return r.json().get("data") or []
-                except Exception:
-                    return []
-
-            tasks = [get_wards(d["DistrictID"]) for d in districts[:20]]
-            results = await asyncio.gather(*tasks)
-            all_wards = [w for wards in results for w in wards]
-            all_wards.sort(key=lambda w: w.get("WardName", ""))
-            return {"code": 200, "message": "Success", "data": all_wards}
-    except Exception:
-        pass
-
-    return {"code": 200, "message": "Success", "data": []}
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        resp = await client.post(
+            f"{GHN_BASE_V3}/master-data/ward/all-by-province-id",
+            headers=_build_headers_no_shop(token),
+            json={"province_id": province_id, "offset": 0, "limit": 500}
+        )
+    return resp.json()
 
 
 async def fetch_wards_v3(token: str, district_id: int) -> dict:

@@ -578,9 +578,10 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
   const [sndStreet, setSndStreet]           = useState('')
 
   // Real address data from backend
-  const [provinces, setProvinces]   = useState(PROVINCES)
-  const [districts, setDistricts]   = useState([])
-  const [wards, setWards]           = useState([])
+  const [provinces, setProvinces]     = useState(PROVINCES)   // địa chỉ cũ
+  const [provincesV3, setProvincesV3] = useState([])          // địa chỉ mới (v3 province ID)
+  const [districts, setDistricts]     = useState([])
+  const [wards, setWards]             = useState([])
   const [loadingAddr, setLoadingAddr] = useState(false)
   const [productLines, setProductLines] = useState([{ id: Date.now(), name: '', qty: 1, price: 0, weight: 0.2, dimD: 10, dimR: 10, dimC: 10 }])
   const addProductLine = () => setProductLines(p => [...p, { id: Date.now(), name: '', qty: 1, price: 0, weight: 0.2, dimD: 10, dimR: 10, dimC: 10 }])
@@ -617,19 +618,36 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
     setServiceId(first)
   }
 
-  // Load real provinces from backend on open (hoặc khi đổi mode địa chỉ)
+  // Load provinces cũ khi mở drawer
   useEffect(() => {
     if (!open) return
     const session = getSession()
     const sellerId = session?.sellerId || null
     if (!sellerId) return
-    setProvinceId(''); setDistrictId(''); setWardCode('')
-    setDistricts([]); setWards([])
-    const ep = addrMode === 'new' ? '/api/ghn/provinces/v3' : '/api/ghn/provinces'
-    apiFetch(`${ep}?seller_id=${sellerId}`)
-      .then(r => { if (r.ok && r.data.data) setProvinces(r.data.data.map(p => ({ id: p.ProvinceID, name: p.ProvinceName }))) })
+    setProvinceId(''); setDistrictId(''); setWardCode(''); setDistricts([]); setWards([])
+    apiFetch(`/api/ghn/provinces?seller_id=${sellerId}`)
+      .then(r => { if (r.ok && r.data?.data) setProvinces(r.data.data.map(p => ({ id: p.ProvinceID, name: p.ProvinceName }))) })
       .catch(() => {})
-  }, [open, addrMode])
+  }, [open])
+
+  // Load provinces v3 (mới) một lần khi drawer mở
+  useEffect(() => {
+    if (!open) return
+    const session = getSession()
+    const sellerId = session?.sellerId || null
+    if (!sellerId) return
+    setNewProvinceId(''); setNewWards([]); setNewWardIdV2('')
+    apiFetch(`/api/ghn/provinces/v3?seller_id=${sellerId}`)
+      .then(r => {
+        if (r.ok && r.data?.data) {
+          setProvincesV3(r.data.data.map(p => ({
+            id: p.ProvinceID ?? p.province_id ?? p.id,
+            name: p.ProvinceName ?? p.province_name ?? p.name,
+          })))
+        }
+      })
+      .catch(() => {})
+  }, [open])
 
   // Load districts when province changes
   useEffect(() => {
@@ -667,11 +685,11 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
     apiFetch(`/api/ghn/wards/v3/by-province?seller_id=${sellerId}&province_id=${newProvinceId}`)
       .then(r => {
         if (r.ok && r.data?.data) setNewWards(r.data.data.map(w => ({
-          // ward_id_v2 = parseInt(WardCode) — GHN dùng WardCode integer làm ward_id_v2
-          id: parseInt(w.WardCode) || w.WardID || w.ward_id_v2,
-          name: w.WardName,
-          code: w.WardCode,
-          districtId: w.DistrictID,  // lưu district để truyền vào GHN payload
+          // v3 API trả về ward_id/WardID là ward_id_v2 thật
+          id: w.ward_id ?? w.WardID ?? w.ward_id_v2 ?? parseInt(w.WardCode),
+          name: w.ward_name ?? w.WardName,
+          code: w.WardCode ?? String(w.ward_id ?? w.WardID),
+          districtId: w.district_id ?? w.DistrictID,
         })))
       })
       .finally(() => setLoadingAddr(false))
@@ -1033,10 +1051,10 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
                     <div style={{ flex:'1 1 140px' }}>
                       <label style={{ fontSize:13, fontWeight:500, color:C_TEXT_PRIMARY, display:'block', marginBottom:4 }}>Tỉnh - Thành phố <span style={{ color:'#EF4444' }}>*</span></label>
                       <div className="field-input" style={{ cursor:'pointer' }}>
-                        <select value={newProvinceId} onChange={e => { setNewProvinceId(e.target.value); setNewWardIdV2('') }}
+                        <select value={newProvinceId} onChange={e => { setNewProvinceId(e.target.value); setNewWardIdV2(''); setNewWards([]) }}
                           style={{ flex:1, border:'none', outline:'none', fontSize:13, color:newProvinceId?C_TEXT_PRIMARY:'#9CA3AF', background:'transparent', appearance:'none' }}>
                           <option value="">Chọn Tỉnh - Thành phố</option>
-                          {provinces.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                          {provincesV3.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                         </select>
                         <Ic.ChevDown />
                       </div>
