@@ -305,35 +305,15 @@ async def get_available_services(
 async def get_shipping_fee(
     token: str,
     shop_id: int,
-    service_id: int,
-    from_district_id: int,
-    to_district_id: int,
-    to_ward_code: str,
-    weight: int,
-    length: int = 10,
-    width: int = 10,
-    height: int = 10,
-    insurance_value: int = 0,
-    coupon: str = "",
+    payload: dict,
     seller_id: Optional[str] = None,
 ) -> dict:
-    """Tính phí vận chuyển thực tế từ GHN."""
-    payload = {
-        "ServiceId": service_id,
-        "InsuranceValue": insurance_value,
-        "Coupon": coupon,
-        "FromDistrictId": from_district_id,
-        "ToDistrictId": to_district_id,
-        "ToWardCode": to_ward_code,
-        "Weight": weight,
-        "Length": length,
-        "Width": width,
-        "Height": height,
-    }
+    """Tính phí vận chuyển thực tế từ GHN.
+    payload chứa đầy đủ fields: service_type_id, weight, to_district_id/to_ward_id_v2..."""
     return await _call(
         token, shop_id,
         path="/v2/shipping-order/fee",
-        method="GET",
+        method="POST",
         body=payload,
         seller_id=seller_id,
     )

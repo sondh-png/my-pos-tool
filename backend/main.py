@@ -140,15 +140,27 @@ class PrintLabelRequest(BaseModel):
 
 class FeeRequest(BaseModel):
     seller_id: str
-    service_id: int
-    from_district_id: int
-    to_district_id: int
-    to_ward_code: str
-    weight: int
+    service_id: Optional[int] = 0          # 0 = để GHN tự chọn service
+    service_type_id: Optional[int] = 2     # 2=hàng nhẹ (xe máy), 5=hàng nặng (xe tải)
+    # Địa chỉ cũ
+    from_district_id: Optional[int] = 0
+    to_district_id: Optional[int] = 0
+    to_ward_code: Optional[str] = ""
+    from_ward_code: Optional[str] = ""
+    # Địa chỉ mới (v3)
+    is_new_to_address: bool = False
+    to_ward_id_v2: Optional[int] = None
+    to_address_v2: Optional[str] = None
+    is_new_from_address: bool = False
+    from_ward_id_v2: Optional[int] = None
+    from_address_v2: Optional[str] = None
+    # Package
+    weight: int = 200
     length: int = 10
     width: int = 10
     height: int = 10
     insurance_value: int = 0
+    cod_failed_amount: int = 0
 
 class ServicesRequest(BaseModel):
     seller_id: str
@@ -509,19 +521,44 @@ async def api_available_services(req: ServicesRequest):
 
 @app.post("/api/ghn/fee")
 async def api_shipping_fee(req: FeeRequest):
-    """Tính phí vận chuyển thực từ GHN."""
+    """Tính phí vận chuyển thực từ GHN (hàng nhẹ service_type_id=2, hàng nặng=5)."""
     token, shop_id = _get_seller_creds(req.seller_id)
+
+    payload: dict = {
+        "weight": req.weight,
+        "length": req.length,
+        "width": req.width,
+        "height": req.height,
+        "insurance_value": req.insurance_value,
+        "cod_failed_amount": req.cod_failed_amount,
+    }
+    # Service: dùng service_id hoặc service_type_id
+    if req.service_id:
+        payload["service_id"] = req.service_id
+    if req.service_type_id:
+        payload["service_type_id"] = req.service_type_id
+
+    # Địa chỉ nhận
+    if req.is_new_to_address:
+        payload["is_new_to_address"] = True
+        if req.to_ward_id_v2: payload["to_ward_id_v2"] = req.to_ward_id_v2
+        if req.to_address_v2: payload["to_address_v2"] = req.to_address_v2
+    else:
+        payload["to_district_id"] = req.to_district_id
+        payload["to_ward_code"]   = req.to_ward_code
+
+    # Địa chỉ gửi
+    if req.is_new_from_address:
+        payload["is_new_from_address"] = True
+        if req.from_ward_id_v2: payload["from_ward_id_v2"] = req.from_ward_id_v2
+        if req.from_address_v2: payload["from_address_v2"] = req.from_address_v2
+    elif req.from_district_id:
+        payload["from_district_id"] = req.from_district_id
+        if req.from_ward_code: payload["from_ward_code"] = req.from_ward_code
+
     result = await get_shipping_fee(
         token, shop_id,
-        service_id=req.service_id,
-        from_district_id=req.from_district_id,
-        to_district_id=req.to_district_id,
-        to_ward_code=req.to_ward_code,
-        weight=req.weight,
-        length=req.length,
-        width=req.width,
-        height=req.height,
-        insurance_value=req.insurance_value,
+        payload=payload,
         seller_id=req.seller_id,
     )
     return result

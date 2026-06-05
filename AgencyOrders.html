@@ -598,6 +598,8 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
   const [collectOnFail, setCollectOnFail]   = useState(true)
   const [collectAmt, setCollectAmt]         = useState(0)
   const [feePayer, setFeePayer]             = useState('sender')
+  const [realFee, setRealFee]               = useState(null)   // phí thật từ GHN API
+  const [loadingFee, setLoadingFee]         = useState(false)
   const [creating, setCreating]             = useState(false)
 
   const selectedShop = agencyShops.find(s => s.id === shopId) ?? agencyShops[0]
@@ -726,37 +728,54 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
     })
   }, [currentServices, provinceId, districtId, convertedWt])
 
-  // Auto-fetch real fee from backend when address + weight ready
+  // Fetch phí thật từ GHN khi đủ địa chỉ + kích thước
   useEffect(() => {
-    if (!BACKEND_ONLINE || !provinceId || !districtId || !wardCode) return
+    if (!BACKEND_ONLINE) return
+    const hasOldAddr = addrMode === 'old' && wardCode && districtId
+    const hasNewAddr = addrMode === 'new' && newWardIdV2 && newProvinceId
+    if (!hasOldAddr && !hasNewAddr) { setRealFee(null); return }
+
     const session = getSession()
     const sellerId = session?.sellerId || null
     if (!sellerId) return
-    const svc = currentServicesWithFee[0]
-    if (!svc?.serviceId) return
-    apiFetch('/api/ghn/fee', {
-      method: 'POST',
-      body: JSON.stringify({
-        seller_id: sellerId,
-        service_id: typeof svc.serviceId === 'number' ? svc.serviceId : parseInt(svc.serviceId.replace(/\D/g,'')||'0'),
-        from_district_id: 1442,
-        to_district_id: parseInt(districtId),
-        to_ward_code: wardCode,
-        weight: Math.round(convertedWt * 1000),
-        length: dimD, width: dimR, height: dimC,
+
+    setLoadingFee(true)
+    setRealFee(null)
+
+    const feePayload = {
+      seller_id: sellerId,
+      service_type_id: serviceType === 'heavy' ? 5 : 2,
+      weight: Math.max(Math.round(convertedWt * 1000), 1),
+      length: Math.round(dimD) || 10,
+      width:  Math.round(dimR) || 10,
+      height: Math.round(dimC) || 10,
+    }
+
+    if (addrMode === 'old') {
+      feePayload.to_district_id = parseInt(districtId)
+      feePayload.to_ward_code   = wardCode
+    } else {
+      feePayload.is_new_to_address = true
+      feePayload.to_ward_id_v2    = parseInt(newWardIdV2)
+      const ward = newWards.find(w => String(w.id) === String(newWardIdV2))
+      if (ward) feePayload.to_address_v2 = ward.name
+    }
+
+    apiFetch('/api/ghn/fee', { method: 'POST', body: JSON.stringify(feePayload) })
+      .then(r => {
+        if (r.ok && r.data?.data?.total)   setRealFee(r.data.data.total)
+        else if (r.ok && r.data?.data?.service_fee) setRealFee(r.data.data.service_fee)
       })
-    }).then(r => {
-      if (r.ok && r.data?.data?.total) {
-      }
-    }).catch(() => {})
-  }, [provinceId, districtId, wardCode, convertedWt])
+      .catch(() => {})
+      .finally(() => setLoadingFee(false))
+  }, [wardCode, districtId, newWardIdV2, addrMode, convertedWt, serviceType])
 
   const selectedSvcConf = currentServicesWithFee.find(cs => cs.serviceId === serviceId)
   const selectedSvc     = selectedSvcConf?.service
   const priceTable      = selectedSvc?.priceTableId ? PRICING.find(p => p.id === selectedSvc.priceTableId) : null
   const surcharges      = priceTable?.surcharges ?? {}
 
-  const feeShipping     = selectedSvcConf?.calculatedFee ?? 0
+  const feeShipping     = realFee !== null ? realFee : (selectedSvcConf?.calculatedFee ?? 0)
   const feeInsurance    = declareValue && goodsValue > 0 ? calcTierFee(goodsValue, surcharges.insurance ?? []) : 0
   const feePartial      = partialDeliver ? parseInt(surcharges.partialDelivery?.value ?? '0', 10) : 0
   const feeDelivFail    = collectOnFail ? parseInt(surcharges.deliveryFailFee?.value ?? '0', 10) : 0
@@ -1214,11 +1233,13 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
 
                 {/* 2 service cards */}
                 {SERVICES.map(svc => {
-                  const sel = serviceType === (svc.id === 'SV_LIGHT' ? 'light' : 'heavy')
-                  const demoFee = svc.id === 'SV_LIGHT' ? feeShipping : feeShipping + 15000
+                  const isLight = svc.id === 'SV_LIGHT'
+                  const sel = serviceType === (isLight ? 'light' : 'heavy')
+                  // Phí thật từ GHN: light dùng realFee, heavy = realFee (service_type_id=5)
+                  const displayFee = loadingFee ? null : (realFee !== null ? (isLight ? realFee : realFee) : (isLight ? feeShipping : feeShipping + 15000))
                   return (
                     <div key={svc.id} className={`service-card ${sel ? 'selected' : ''}`}
-                      onClick={() => setServiceType(svc.id === 'SV_LIGHT' ? 'light' : 'heavy')}>
+                      onClick={() => { setServiceType(isLight ? 'light' : 'heavy') }}>
                       <RadioDot on={sel} />
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ fontSize:11, color:C_TEXT_SECONDARY }}>Dịch vụ</div>
@@ -1226,8 +1247,8 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
                         <div style={{ fontSize:11, color:C_TEXT_SECONDARY, marginTop:1 }}>{svc.desc}</div>
                       </div>
                       <span style={{ fontSize:12, color:C_TEXT_SECONDARY, flexShrink:0 }}>Phí ship:</span>
-                      <span style={{ fontSize:14, fontWeight:700, color:C_TEXT_PRIMARY, flexShrink:0, whiteSpace:'nowrap' }}>
-                        {fmtVND(demoFee)}đ
+                      <span style={{ fontSize:14, fontWeight:700, color: realFee !== null ? '#FF5200' : C_TEXT_PRIMARY, flexShrink:0, whiteSpace:'nowrap' }}>
+                        {loadingFee ? '⏳...' : `${fmtVND(displayFee ?? 0)}đ`}
                       </span>
                     </div>
                   )
