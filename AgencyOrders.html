@@ -641,9 +641,9 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
       .then(r => {
         if (r.ok && r.data?.data) {
           setProvincesV3(r.data.data.map(p => ({
-            id: p.ProvinceID ?? p.province_id ?? p.id,
-            name: p.ProvinceName ?? p.province_name ?? p.name,
-          })))
+            id: p._id,    // GHN v3: _id là province_id mới (VD: 1000033)
+            name: p.name,
+          })).sort((a, b) => a.name.localeCompare(b.name, 'vi')))
         }
       })
       .catch(() => {})
@@ -685,12 +685,11 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
     apiFetch(`/api/ghn/wards/v3/by-province?seller_id=${sellerId}&province_id=${newProvinceId}`)
       .then(r => {
         if (r.ok && r.data?.data) setNewWards(r.data.data.map(w => ({
-          // v3 API trả về ward_id/WardID là ward_id_v2 thật
-          id: w.ward_id ?? w.WardID ?? w.ward_id_v2 ?? parseInt(w.WardCode),
-          name: w.ward_name ?? w.WardName,
-          code: w.WardCode ?? String(w.ward_id ?? w.WardID),
-          districtId: w.district_id ?? w.DistrictID,
-        })))
+          id: w._id,           // GHN v3: _id = ward_id_v2 thật (VD: 1003647)
+          name: w.name,
+          code: String(w._id), // to_ward_code = String(ward_id_v2)
+          districtId: 0,       // v3 không có district, GHN tự routing
+        })).sort((a, b) => a.name.localeCompare(b.name, 'vi')))
       })
       .finally(() => setLoadingAddr(false))
   }, [newProvinceId, addrMode])
