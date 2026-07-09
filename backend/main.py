@@ -1374,26 +1374,31 @@ def _resolve_offline(text, province_hint=None):
             if c['new'].lower() not in seen:
                 seen.add(c['new'].lower()); uniq.append(c)
 
-        # nếu chắc chắn: kiểm tra địa chỉ có ghi 1 phường mới KHÁC (ghi sai) không
-        stated_wrong = None
+        # so phường mày GHI trong địa chỉ (bỏ phần trong ngoặc để không nhầm phường cũ)
+        # với phường ĐÚNG theo data nhà nước.
+        stated_wrong = None      # phường mới mày ghi nhưng SAI
+        stated_correct = False   # mày ghi ĐÚNG phường mới
+        tn_nopar = _n(_re.sub(r'\([^)]*\)', ' ', text))
         if len(uniq) == 1 and pc:
             correct = _n(uniq[0]['new'])
             for wc2, lst in resolver.get(pc, {}).items():
                 for c2 in lst:
                     nn = _n(c2['new'])
-                    if nn == correct:
+                    if len(nn) < 5:
                         continue
-                    if _re.search(r'(?:^|\s)' + _re.escape(nn) + r'(?:$|\s|,)', tn):
-                        stated_wrong = c2['new']
-                        break
-                if stated_wrong:
-                    break
+                    if _re.search(r'(?:^|\s)' + _re.escape(nn) + r'(?:$|\s|,)', tn_nopar):
+                        if nn == correct:
+                            stated_correct = True
+                        elif not stated_wrong:
+                            stated_wrong = c2['new']
 
         results.append({
             'old': o,
             'candidates': uniq,
             'confident': len(uniq) == 1,
+            'correct_ward': uniq[0]['new'] if len(uniq) == 1 else None,
             'stated_wrong': stated_wrong,
+            'stated_correct': stated_correct,
         })
     return {
         'province': provs.get(pc, '') if pc else '',
