@@ -27,6 +27,7 @@ OUT = os.path.join(BASE, 'ward_resolver.json')
 def norm(s):
     s = unicodedata.normalize('NFD', (s or '').lower())
     s = ''.join(c for c in s if unicodedata.category(c) != 'Mn')
+    s = s.replace('đ', 'd')   # NFD không tách đ → phải thay tay
     return ' '.join(s.split())
 
 

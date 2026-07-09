@@ -1219,6 +1219,7 @@ _WARD_PREFIXES2 = ('phuong ', 'xa ', 'thi tran ', 'thi xa ', 'dac khu ')
 def _n(s):
     s = _ud.normalize('NFD', (s or '').lower())
     s = ''.join(c for c in s if _ud.category(c) != 'Mn')
+    s = s.replace('đ', 'd')   # NFD không tách đ → phải thay tay
     return ' '.join(s.split())
 
 
