@@ -653,14 +653,37 @@ async def api_create_order(req: OrderCreateRequest):
             "ghn_data": ghn_data,
         }
     else:
-        # Lưu lỗi GHN vào DB để debug
-        ghn_msg = result["data"].get("message") or result.get("error") or "Lỗi không xác định"
+        # Trích message GHN — có thể là string, list, hoặc dict (validation errors)
+        raw = result["data"] if isinstance(result.get("data"), dict) else {}
+        ghn_msg = raw.get("message") or raw.get("code_message_value") or result.get("error")
+
+        def _flatten(m):
+            if m is None:
+                return ""
+            if isinstance(m, str):
+                return m
+            if isinstance(m, list):
+                return "; ".join(_flatten(x) for x in m if x)
+            if isinstance(m, dict):
+                # ưu tiên field message/msg, nếu không có thì dump toàn bộ
+                inner = m.get("message") or m.get("msg") or m.get("error")
+                if inner:
+                    return _flatten(inner)
+                return json.dumps(m, ensure_ascii=False)
+            return str(m)
+
+        msg_text = _flatten(ghn_msg) or "Lỗi không xác định"
+        # Kèm luôn field errors nếu GHN trả trong data
+        errors = raw.get("data")
+        if errors and not isinstance(errors, (str, int)):
+            msg_text = f"{msg_text} | chi tiết: {json.dumps(errors, ensure_ascii=False)}"
+
         with get_conn() as conn:
             conn.execute(
                 "UPDATE orders SET note=? WHERE client_code=? AND seller_id=?",
-                (f"GHN_ERROR: {ghn_msg}", client_code, req.seller_id)
+                (f"GHN_ERROR: {msg_text}"[:1000], client_code, req.seller_id)
             )
-        raise HTTPException(400, f"GHN từ chối đơn hàng: {ghn_msg}")
+        raise HTTPException(400, f"GHN từ chối đơn hàng: {msg_text}")
 
 
 @app.get("/api/orders")
