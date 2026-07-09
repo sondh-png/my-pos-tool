@@ -1363,6 +1363,11 @@ def _resolve_offline(text, province_hint=None):
             filtered = [c for c in cands if c['dist'] and _dist_in_text(c['dist'])]
             if len(filtered) == 1:
                 cands = filtered
+        # nếu địa chỉ đã ghi sẵn tên phường MỚI → chọn đúng cái đó
+        if len(cands) > 1:
+            named = [c for c in cands if _n(c['new']) in tn]
+            if len(named) == 1:
+                cands = named
         # dedup theo new
         seen = set(); uniq = []
         for c in cands:
