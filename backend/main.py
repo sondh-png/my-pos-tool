@@ -1313,10 +1313,22 @@ def _resolve_offline(text, province_hint=None):
         for pk in prov_keys:
             for c in resolver.get(pk, {}).get(wc, []):
                 cands.append({'new': c['new'], 'dist': c['dist'], 'prov': pk})
-        # lọc theo quận/huyện nếu text có nhắc
+        # lọc theo quận/huyện nếu text có nhắc (so theo LÕI tên quận, bỏ prefix)
         if len(cands) > 1:
-            filtered = [c for c in cands if c['dist'] and any(
-                part.strip() and part.strip() in tn for part in c['dist'].split('|'))]
+            def _dist_in_text(dist_str):
+                for part in dist_str.split('|'):
+                    part = part.strip()
+                    if not part:
+                        continue
+                    core = part
+                    for dp in ('quan ', 'huyen ', 'thi xa ', 'thanh pho ', 'tp '):
+                        if core.startswith(dp):
+                            core = core[len(dp):].strip()
+                            break
+                    if core and len(core) >= 3 and core in tn:
+                        return True
+                return False
+            filtered = [c for c in cands if c['dist'] and _dist_in_text(c['dist'])]
             if len(filtered) == 1:
                 cands = filtered
         # dedup theo new
