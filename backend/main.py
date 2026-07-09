@@ -1325,13 +1325,23 @@ def _extract_old_wards(text):
             mb = _re.search(r'((?:xã|phường|thị trấn|thị xã)\s+[^,()]+)$', before.strip(), _re.IGNORECASE)
             if mb:
                 olds.append(_n(mb.group(1)))
+
+    # Quét cả các cụm 'phường/xã/thị trấn <tên>' ghi THẲNG trong địa chỉ (kể cả số),
+    # bỏ phần trong ngoặc để không trùng.
+    text_nopar = _re.sub(r'\([^)]*\)', ' ', text or '')
+    for m in _re.finditer(r'(?:phường|phuong|xã|xa|thị trấn|thi tran|thị xã|thi xa)\s+([^,()]+)',
+                          text_nopar, _re.IGNORECASE):
+        olds.append(_n(m.group(1)))
+
     # chuẩn hóa số phường
     out = []
     for o in olds:
         o = _re.sub(r'\bp\s*0*(\d+)\b', r'phuong \1', o)
         o = _re.sub(r'phuong\s*0+(\d+)', r'phuong \1', o)
-        out.append(o.strip())
-    return [o for o in out if o]
+        o = o.strip()
+        if o and o not in out:
+            out.append(o)
+    return out
 
 
 def _scan_province_oldwards(pc, text_norm):
@@ -1362,9 +1372,11 @@ def _resolve_offline(text, province_hint=None):
     olds = _extract_old_wards(text)
     tn = _n(text)
 
-    # Nếu không thấy phường cũ trong ngoặc → quét tên xã cũ trong text theo tỉnh
-    if not olds and pc:
-        olds = _scan_province_oldwards(pc, tn)
+    # Gộp thêm tên xã cũ quét theo tỉnh (bắt tên nằm ngoài ngoặc, vd 'Hồng Dương')
+    if pc:
+        for wc in _scan_province_oldwards(pc, tn):
+            if wc not in olds:
+                olds.append(wc)
 
     results = []
     for o in olds:
@@ -1382,6 +1394,9 @@ def _resolve_offline(text, province_hint=None):
                     part = part.strip()
                     if not part:
                         continue
+                    # khớp nguyên cụm quận (vd 'quan 10' cho Quận số)
+                    if len(part) >= 5 and part in tn:
+                        return True
                     core = part
                     for dp in ('quan ', 'huyen ', 'thi xa ', 'thanh pho ', 'tp '):
                         if core.startswith(dp):
@@ -1391,7 +1406,8 @@ def _resolve_offline(text, province_hint=None):
                         return True
                 return False
             filtered = [c for c in cands if c['dist'] and _dist_in_text(c['dist'])]
-            if len(filtered) == 1:
+            # giữ nhóm khớp quận (dù còn >1) để loại các quận khác
+            if filtered:
                 cands = filtered
         # nếu địa chỉ đã ghi sẵn tên phường MỚI → chọn đúng cái đó
         if len(cands) > 1:
