@@ -106,8 +106,8 @@ class OrderCreateRequest(BaseModel):
     to_name: str
     to_phone: str
     to_address: str
-    to_ward_code: str
-    to_district_id: int
+    to_ward_code: Optional[str] = None      # bắt buộc cho địa chỉ CŨ; địa chỉ mới không cần
+    to_district_id: Optional[int] = None    # bắt buộc cho địa chỉ CŨ; địa chỉ mới không cần
     to_province_id: Optional[int] = None
     # Địa chỉ hành chính mới (GHN v3 – áp dụng từ 01/07/2025)
     is_new_to_address: bool = False
