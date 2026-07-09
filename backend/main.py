@@ -1192,6 +1192,212 @@ async def api_address_check_batch(req: AddressCheckBatchRequest):
 
 
 # ══════════════════════════════════════════════════════════════════
+# ADDRESS RESOLVER – tra phường mới chính xác từ phường CŨ + tỉnh + quận
+# (offline resolver + fallback live sapnhap.bando.com.vn)
+# ══════════════════════════════════════════════════════════════════
+import unicodedata as _ud
+import re as _re
+
+_resolver = None          # {"provinces": {...}, "resolver": {...}}
+_live_cache = None        # cache dữ liệu p.co_dvhc live (parsed)
+
+_PROV_ALIASES = {
+    'hcm': 'ho chi minh', 'tphcm': 'ho chi minh', 'tp hcm': 'ho chi minh',
+    'sai gon': 'ho chi minh', 'sg': 'ho chi minh',
+    'hn': 'ha noi', 'tp ha noi': 'ha noi',
+}
+_WARD_PREFIXES2 = ('phuong ', 'xa ', 'thi tran ', 'thi xa ', 'dac khu ')
+
+
+def _n(s):
+    s = _ud.normalize('NFD', (s or '').lower())
+    s = ''.join(c for c in s if _ud.category(c) != 'Mn')
+    return ' '.join(s.split())
+
+
+def _prov_core(s):
+    n = _n(s)
+    for p in ('thanh pho ', 'tinh '):
+        if n.startswith(p):
+            n = n[len(p):]
+    return n.strip()
+
+
+def _ward_core(w):
+    n = _n(w)
+    for p in _WARD_PREFIXES2:
+        if n.startswith(p):
+            return n[len(p):].strip()
+    return n
+
+
+def _load_resolver():
+    global _resolver
+    if _resolver is None:
+        base = os.path.dirname(os.path.abspath(__file__))
+        try:
+            with open(os.path.join(base, 'ward_resolver.json'), encoding='utf-8') as f:
+                _resolver = json.load(f)
+        except Exception:
+            _resolver = {'provinces': {}, 'resolver': {}}
+    return _resolver
+
+
+def _detect_province(text, hint=None):
+    """Trả province_core từ hint hoặc dò trong text."""
+    data = _load_resolver()
+    provs = data.get('provinces', {})
+    if hint:
+        pc = _prov_core(hint)
+        if pc in provs:
+            return pc
+        for a, full in _PROV_ALIASES.items():
+            if a in _n(hint) and full in provs:
+                return full
+    tn = _n(text)
+    for a, full in _PROV_ALIASES.items():
+        if a in tn and full in provs:
+            return full
+    # match tên tỉnh (dài trước để tránh trùng)
+    for pc in sorted(provs.keys(), key=lambda k: -len(k)):
+        if pc in tn:
+            return pc
+    return None
+
+
+_OLD_MARK = ('cu', 'củ', 'cũ')
+
+def _extract_old_wards(text):
+    """
+    Trích tên phường/xã CŨ từ địa chỉ. Ưu tiên phần trong ngoặc '(... cũ)',
+    và pattern '<ward> (cũ)'. Chuẩn hóa P5 -> phường 5, phường 06 -> phường 6.
+    """
+    olds = []
+    paren_re = _re.compile(r'\(([^)]*)\)')
+    for m in paren_re.finditer(text or ''):
+        content = m.group(1).strip()
+        cn = _n(content)
+        # bỏ chữ 'cu'/'cũ'
+        cn_clean = _re.sub(r'\bcu\b', '', cn).strip(' .,-')
+        if cn_clean:
+            olds.append(cn_clean)
+        else:
+            # '(cũ)' rỗng → lấy cụm phường/xã ngay trước dấu '('
+            before = text[:m.start()]
+            mb = _re.search(r'((?:xã|phường|thị trấn|thị xã)\s+[^,()]+)$', before.strip(), _re.IGNORECASE)
+            if mb:
+                olds.append(_n(mb.group(1)))
+    # chuẩn hóa số phường
+    out = []
+    for o in olds:
+        o = _re.sub(r'\bp\s*0*(\d+)\b', r'phuong \1', o)
+        o = _re.sub(r'phuong\s*0+(\d+)', r'phuong \1', o)
+        out.append(o.strip())
+    return [o for o in out if o]
+
+
+def _resolve_offline(text, province_hint=None):
+    data = _load_resolver()
+    resolver = data.get('resolver', {})
+    provs = data.get('provinces', {})
+    pc = _detect_province(text, province_hint)
+    olds = _extract_old_wards(text)
+    tn = _n(text)
+
+    results = []
+    for o in olds:
+        wc = _ward_core(o)
+        # danh sách province để tra: ưu tiên province xác định, else all
+        prov_keys = [pc] if pc else list(resolver.keys())
+        cands = []
+        for pk in prov_keys:
+            for c in resolver.get(pk, {}).get(wc, []):
+                cands.append({'new': c['new'], 'dist': c['dist'], 'prov': pk})
+        # lọc theo quận/huyện nếu text có nhắc
+        if len(cands) > 1:
+            filtered = [c for c in cands if c['dist'] and any(
+                part.strip() and part.strip() in tn for part in c['dist'].split('|'))]
+            if len(filtered) == 1:
+                cands = filtered
+        # dedup theo new
+        seen = set(); uniq = []
+        for c in cands:
+            if c['new'].lower() not in seen:
+                seen.add(c['new'].lower()); uniq.append(c)
+        results.append({
+            'old': o,
+            'candidates': uniq,
+            'confident': len(uniq) == 1,
+        })
+    return {
+        'province': provs.get(pc, '') if pc else '',
+        'province_core': pc or '',
+        'old_wards': olds,
+        'results': results,
+    }
+
+
+async def _resolve_live(province_core, ward_core):
+    """Fallback: fetch p.co_dvhc live, tìm phường mới cho old ward trong tỉnh."""
+    global _live_cache
+    try:
+        if _live_cache is None:
+            import httpx
+            async with httpx.AsyncClient(timeout=15) as client:
+                r = await client.post('https://sapnhap.bando.com.vn/p.co_dvhc',
+                                      headers={'Content-Type': 'application/x-www-form-urlencoded'})
+            raw = r.content.decode('utf-8-sig')
+            alldata = json.loads(raw)
+            cap_tinh = [x for x in alldata if 'captinh' in x.get('malk', '')]
+            prov_by_ma = {x['ma']: x['ten'] for x in cap_tinh}
+            _live_cache = {'xa': [x for x in alldata if 'capxa' in x.get('malk', '')],
+                           'prov_by_ma': prov_by_ma}
+        out = []
+        for x in _live_cache['xa']:
+            pdisp = _live_cache['prov_by_ma'].get(x.get('magoc', ''), '')
+            if province_core and _prov_core(pdisp) != province_core:
+                continue
+            truoc = _n(x.get('truocsapnhap', ''))
+            if ward_core and ward_core in truoc:
+                out.append(x['ten'])
+        return list(dict.fromkeys(out))
+    except Exception as e:
+        print(f"[resolve_live] {e}", flush=True)
+        return []
+
+
+@app.get("/api/address-resolve")
+async def api_address_resolve(q: str, province: Optional[str] = None, live: bool = True):
+    """
+    Tra phường MỚI chính xác từ địa chỉ có ghi phường CŨ.
+    - Offline trước; nếu không chắc và live=true → xác minh qua sapnhap.bando.com.vn.
+    """
+    res = _resolve_offline(q, province)
+
+    # Fallback live cho các old ward chưa chắc
+    if live:
+        for item in res['results']:
+            if not item['confident']:
+                live_cands = await _resolve_live(res['province_core'], _ward_core(item['old']))
+                if live_cands:
+                    existing = {c['new'].lower() for c in item['candidates']}
+                    for lc in live_cands:
+                        if lc.lower() not in existing:
+                            item['candidates'].append({'new': lc, 'dist': '', 'prov': res['province_core'], 'source': 'live'})
+                    item['confident'] = len(item['candidates']) == 1
+
+    # Tổng hợp mức độ chắc chắn
+    confident = [it for it in res['results'] if it['confident']]
+    res['status'] = (
+        'confident' if len(confident) == len(res['results']) and res['results']
+        else 'ambiguous' if res['results']
+        else 'no_old_ward'
+    )
+    res['map_link'] = 'https://sapnhap.bando.com.vn/'
+    return res
+
+
+# ══════════════════════════════════════════════════════════════════
 # TELEGRAM BRIDGE
 # ══════════════════════════════════════════════════════════════════
 
