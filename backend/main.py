@@ -1491,17 +1491,14 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
     """
     res = _resolve_offline(q, province)
 
-    # Fallback live cho các old ward chưa chắc
+    # Fallback live CHỈ khi offline KHÔNG có ứng viên nào (tránh phá bộ đã lọc theo quận)
     if live:
         for item in res['results']:
-            if not item['confident']:
+            if not item['candidates']:
                 live_cands = await _resolve_live(res['province_core'], _ward_core(item['old']))
-                if live_cands:
-                    existing = {c['new'].lower() for c in item['candidates']}
-                    for lc in live_cands:
-                        if lc.lower() not in existing:
-                            item['candidates'].append({'new': lc, 'dist': '', 'prov': res['province_core'], 'source': 'live'})
-                    item['confident'] = len(item['candidates']) == 1
+                for lc in live_cands:
+                    item['candidates'].append({'new': lc, 'dist': '', 'prov': res['province_core'], 'source': 'live'})
+                item['confident'] = len(item['candidates']) == 1
 
     # Tổng hợp mức độ chắc chắn
     confident = [it for it in res['results'] if it['confident']]
