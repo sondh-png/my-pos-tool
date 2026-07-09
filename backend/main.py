@@ -1137,10 +1137,17 @@ def _check_address(text: str) -> dict:
     text_lower = text.lower()
     matches = []
     seen_new = set()
+    import re as _re2
+    def _bounded(key):
+        # key phải đứng sau ranh giới (đầu/phẩy/ngoặc/space) và TRƯỚC dấu phẩy/ngoặc/hết
+        # → tránh 'xã thanh' khớp lỏng trong 'xã thanh oai'
+        pat = r'(?:^|[,(;]|\s)' + _re2.escape(key) + r'\s*(?:$|[,)\;])'
+        return _re2.search(pat, text_lower) is not None
+
     for old_key, info in sorted(_ward_lookup.items(), key=lambda x: -len(x[0])):
         if not any(old_key.startswith(p) for p in _ADMIN_PREFIXES):
             continue
-        if old_key in text_lower:
+        if _bounded(old_key):
             key = info['new'].lower()
             if key not in seen_new:
                 seen_new.add(key)
@@ -1296,6 +1303,26 @@ def _extract_old_wards(text):
     return [o for o in out if o]
 
 
+def _scan_province_oldwards(pc, text_norm):
+    """Quét tên xã/phường CŨ (theo bucket tỉnh) xuất hiện trong text — kể cả
+    không nằm trong ngoặc '(... cũ)'. Chỉ nhận tên ≥2 chữ, ≥6 ký tự, khớp nguyên cụm."""
+    data = _load_resolver()
+    bucket = data.get('resolver', {}).get(pc, {})
+    found = []
+    for wc in bucket.keys():
+        if len(wc) < 6 or ' ' not in wc:
+            continue
+        if _re.search(r'(?:^|\s)' + _re.escape(wc) + r'(?:$|\s|,)', text_norm):
+            found.append(wc)
+    # ưu tiên cụm dài nhất, bỏ cụm con
+    found.sort(key=len, reverse=True)
+    result = []
+    for wc in found:
+        if not any(wc != other and wc in other for other in result):
+            result.append(wc)
+    return result
+
+
 def _resolve_offline(text, province_hint=None):
     data = _load_resolver()
     resolver = data.get('resolver', {})
@@ -1303,6 +1330,10 @@ def _resolve_offline(text, province_hint=None):
     pc = _detect_province(text, province_hint)
     olds = _extract_old_wards(text)
     tn = _n(text)
+
+    # Nếu không thấy phường cũ trong ngoặc → quét tên xã cũ trong text theo tỉnh
+    if not olds and pc:
+        olds = _scan_province_oldwards(pc, tn)
 
     results = []
     for o in olds:
