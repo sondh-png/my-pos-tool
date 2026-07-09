@@ -1171,10 +1171,23 @@ def _check_address(text: str) -> dict:
                 }
                 break
 
+    # Phát hiện NHÓM phường cùng gốc tên (An Nhơn, An Nhơn Bắc/Đông/Nam/Tây...) → dễ nhầm
+    confusable = None
+    if not matches and new_found:
+        pc = _detect_province(text)
+        if pc:
+            for m in new_found:
+                grp = _confusable_group(pc, m['name'])
+                if len(grp) >= 2:
+                    confusable = {'stated': m['name'], 'group': grp,
+                                  'province': _load_resolver().get('provinces', {}).get(pc, '')}
+                    break
+
     return {
         'old_matches': matches,
         'new_found': new_found,
         'ambiguous': ambiguous,
+        'confusable': confusable,
         'is_old': len(matches) > 0,
         'is_new': len(matches) == 0 and not ambiguous and len(new_found) > 0,
         'is_ambiguous': ambiguous is not None,
@@ -1237,6 +1250,23 @@ def _ward_core(w):
         if n.startswith(p):
             return n[len(p):].strip()
     return n
+
+
+def _confusable_group(pc, name):
+    """Tìm nhóm phường mới cùng gốc tên trong tỉnh (An Nhơn, An Nhơn Bắc/Đông...).
+    Trả list ≥2 nếu 'name' là 1 phần của nhóm dễ nhầm."""
+    data = _load_resolver()
+    bucket = data.get('resolver', {}).get(pc, {})
+    base = _ward_core(name)
+    if len(base) < 3:
+        return []
+    fam = set()
+    for wc, lst in bucket.items():
+        for c in lst:
+            nc = _ward_core(c['new'])
+            if nc == base or nc.startswith(base + ' '):
+                fam.add(c['new'])
+    return sorted(fam)
 
 
 def _load_resolver():
