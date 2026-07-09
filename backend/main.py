@@ -607,8 +607,6 @@ async def api_create_order(req: OrderCreateRequest):
         "to_name": req.to_name,
         "to_phone": req.to_phone,
         "to_address": req.to_address,
-        "to_ward_code": req.to_ward_code,
-        "to_district_id": req.to_district_id,
         "weight": req.weight,
         "length": req.length,
         "width": req.width,
@@ -625,13 +623,17 @@ async def api_create_order(req: OrderCreateRequest):
     if req.from_phone: ghn_payload["from_phone"] = req.from_phone
     if req.from_address: ghn_payload["from_address"] = req.from_address
 
-    # Địa chỉ hành chính mới (v3)
+    # Địa chỉ hành chính mới v3 (01/07/2025) — KHÔNG kèm to_ward_code/to_district_id cũ
     if req.is_new_to_address:
         ghn_payload["is_new_to_address"] = True
         if req.to_ward_id_v2:
             ghn_payload["to_ward_id_v2"] = req.to_ward_id_v2
         if req.to_address_v2:
             ghn_payload["to_address_v2"] = req.to_address_v2
+    else:
+        # Địa chỉ cũ — cần ward_code + district_id
+        ghn_payload["to_ward_code"] = req.to_ward_code
+        ghn_payload["to_district_id"] = req.to_district_id
 
     result = await create_order(token, shop_id, ghn_payload, seller_id=req.seller_id)
 
