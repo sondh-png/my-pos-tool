@@ -860,14 +860,14 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
         to_province_id: parseInt(provinceId) || null,
       } : {
         // Địa chỉ hành chính mới (01/07/2025)
-        // ward_id_v2 = parseInt(WardCode) theo chuẩn GHN
+        // API TẠO ĐƠN dùng TÊN phường + TÊN tỉnh (khác API tính phí dùng ward_id_v2)
         is_new_to_address: true,
-        to_ward_id_v2: parseInt(newWardIdV2) || undefined,
-        to_address_v2: [rcvStreet, newWards.find(w=>String(w.id)===String(newWardIdV2))?.name, provinces.find(p=>p.id==newProvinceId)?.name].filter(Boolean).join(', '),
+        to_ward_name: newWards.find(w=>String(w.id)===String(newWardIdV2))?.name,
+        to_province_name: provincesV3.find(p=>String(p.id)===String(newProvinceId))?.name,
         to_province_id: parseInt(newProvinceId) || null,
-        // Vẫn truyền district + old ward_code để GHN routing (một số API vẫn cần)
-        to_district_id: newWards.find(w => String(w.id)===String(newWardIdV2))?.districtId || 0,
-        to_ward_code: String(newWardIdV2),  // GHN cần to_ward_code = String(ward_id_v2)
+        // Giữ cho việc tính phí (backend không đẩy vào create)
+        to_ward_id_v2: parseInt(newWardIdV2) || undefined,
+        to_address_v2: [rcvStreet, newWards.find(w=>String(w.id)===String(newWardIdV2))?.name, provincesV3.find(p=>String(p.id)===String(newProvinceId))?.name].filter(Boolean).join(', '),
       }),
       service_id: typeof serviceId === 'number' ? serviceId : 0,
       service_type_id: svcTypeId,

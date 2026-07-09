@@ -111,8 +111,10 @@ class OrderCreateRequest(BaseModel):
     to_province_id: Optional[int] = None
     # Địa chỉ hành chính mới (GHN v3 – áp dụng từ 01/07/2025)
     is_new_to_address: bool = False
-    to_ward_id_v2: Optional[int] = None     # integer ward ID mới (VD: 70119087)
-    to_address_v2: Optional[str] = None     # địa chỉ chi tiết khi dùng đơn vị mới
+    to_ward_id_v2: Optional[int] = None     # integer ward ID mới (VD: 70119087) — dùng cho API tính phí
+    to_address_v2: Optional[str] = None     # địa chỉ chi tiết khi dùng đơn vị mới (fee)
+    to_ward_name: Optional[str] = None      # tên phường/xã mới — API tạo đơn dùng cái này
+    to_province_name: Optional[str] = None  # tên tỉnh/thành mới — API tạo đơn dùng cái này
     # Package
     weight: int = 200
     length: int = 10
@@ -623,13 +625,16 @@ async def api_create_order(req: OrderCreateRequest):
     if req.from_phone: ghn_payload["from_phone"] = req.from_phone
     if req.from_address: ghn_payload["from_address"] = req.from_address
 
-    # Địa chỉ hành chính mới v3 (01/07/2025) — KHÔNG kèm to_ward_code/to_district_id cũ
+    # Địa chỉ hành chính mới v3 (01/07/2025).
+    # LƯU Ý: API tạo đơn dùng to_ward_name + to_province_name (TÊN),
+    # KHÁC API tính phí dùng to_ward_id_v2 (ID). Không được gửi to_ward_id_v2
+    # vào endpoint create → gây "To address conflict".
     if req.is_new_to_address:
         ghn_payload["is_new_to_address"] = True
-        if req.to_ward_id_v2:
-            ghn_payload["to_ward_id_v2"] = req.to_ward_id_v2
-        if req.to_address_v2:
-            ghn_payload["to_address_v2"] = req.to_address_v2
+        if req.to_ward_name:
+            ghn_payload["to_ward_name"] = req.to_ward_name
+        if req.to_province_name:
+            ghn_payload["to_province_name"] = req.to_province_name
     else:
         # Địa chỉ cũ — cần ward_code + district_id
         ghn_payload["to_ward_code"] = req.to_ward_code
