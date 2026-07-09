@@ -1070,17 +1070,21 @@ def _load_ward_data():
             _new_ward_names = {}
 
 
+_ADMIN_PREFIXES = ('phường ', 'xã ', 'thị trấn ', 'thị xã ', 'phuong ', 'xa ', 'thi tran ')
+
 def _check_address(text: str) -> dict:
     """
     Tìm tên phường/xã cũ (trước 7/2025) trong đoạn text địa chỉ.
-    Trả về danh sách matches: [{old, new, tinh}]
+    Chỉ match khi tên cũ có prefix hành chính (Phường/Xã/Thị trấn) để tránh nhầm tên đường.
     """
     _load_ward_data()
     text_lower = text.lower()
     matches = []
     seen_new = set()
-    # Sort by length desc to match longer names first (avoid partial match)
     for old_key, info in sorted(_ward_lookup.items(), key=lambda x: -len(x[0])):
+        # Bắt buộc old_key phải bắt đầu bằng prefix hành chính
+        if not any(old_key.startswith(p) for p in _ADMIN_PREFIXES):
+            continue
         if old_key in text_lower:
             key = info['new'].lower()
             if key not in seen_new:
