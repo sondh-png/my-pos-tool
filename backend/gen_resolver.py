@@ -32,7 +32,7 @@ def norm(s):
 
 def prov_core(s):
     n = norm(s)
-    for p in ('thanh pho ', 'tinh '):
+    for p in ('thu do ', 'thanh pho ', 'tinh '):
         if n.startswith(p):
             n = n[len(p):]
     return n.strip()
