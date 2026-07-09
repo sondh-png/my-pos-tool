@@ -1083,9 +1083,20 @@ def _save_chat(user_msg: str, assistant_msg: str):
 
 _ward_lookup: dict | None = None
 _new_ward_names: dict | None = None
+_district_split: dict | None = None
+_district_core: dict | None = None   # core name (bỏ prefix) -> {display, tinh, new_wards}
+
+_DIST_PREFIXES = ('quận ', 'huyện ', 'thị xã ', 'thành phố ', 'tp ', 'tp.')
+
+def _strip_dist_prefix(name: str) -> str:
+    n = name.lower().strip()
+    for p in _DIST_PREFIXES:
+        if n.startswith(p):
+            return n[len(p):].strip()
+    return n
 
 def _load_ward_data():
-    global _ward_lookup, _new_ward_names
+    global _ward_lookup, _new_ward_names, _district_split, _district_core
     if _ward_lookup is None:
         _base = os.path.dirname(os.path.abspath(__file__))
         try:
@@ -1098,6 +1109,19 @@ def _load_ward_data():
                 _new_ward_names = json.load(f)
         except Exception:
             _new_ward_names = {}
+        try:
+            with open(os.path.join(_base, 'old_district_split.json'), encoding='utf-8') as f:
+                _district_split = json.load(f)
+        except Exception:
+            _district_split = {}
+        # Build core-name map (bỏ prefix quận/huyện) — chỉ giữ quận tách >1 phường
+        _district_core = {}
+        for k, v in _district_split.items():
+            if len(v.get('new_wards', [])) > 1:
+                core = _strip_dist_prefix(v.get('display', k))
+                # bỏ core thuần số ("1".."12") để tránh over-match
+                if core and not core.isdigit() and len(core) >= 3:
+                    _district_core[core] = v
 
 
 _ADMIN_PREFIXES = ('phường ', 'xã ', 'thị trấn ', 'thị xã ', 'phuong ', 'xa ', 'thi tran ')
@@ -1105,14 +1129,15 @@ _ADMIN_PREFIXES = ('phường ', 'xã ', 'thị trấn ', 'thị xã ', 'phuong 
 def _check_address(text: str) -> dict:
     """
     Tìm tên phường/xã cũ (trước 7/2025) trong đoạn text địa chỉ.
-    Chỉ match khi tên cũ có prefix hành chính (Phường/Xã/Thị trấn) để tránh nhầm tên đường.
+    - Chỉ match tên cũ có prefix hành chính (Phường/Xã/Thị trấn) để tránh nhầm tên đường.
+    - Nếu text chứa tên QUẬN/HUYỆN cũ đã tách nhiều phường → cảnh báo mơ hồ,
+      KHÔNG khẳng định được phường mới (vì cần biết phường số cũ hoặc để GHN tự resolve).
     """
     _load_ward_data()
     text_lower = text.lower()
     matches = []
     seen_new = set()
     for old_key, info in sorted(_ward_lookup.items(), key=lambda x: -len(x[0])):
-        # Bắt buộc old_key phải bắt đầu bằng prefix hành chính
         if not any(old_key.startswith(p) for p in _ADMIN_PREFIXES):
             continue
         if old_key in text_lower:
@@ -1120,16 +1145,32 @@ def _check_address(text: str) -> dict:
             if key not in seen_new:
                 seen_new.add(key)
                 matches.append({'old': info['old'], 'new': info['new'], 'tinh': info['tinh']})
+
     # Check new names
     new_found = []
     for new_key, info in _new_ward_names.items():
         if new_key in text_lower and new_key not in seen_new:
             new_found.append({'name': info['name'], 'tinh': info['tinh']})
+
+    # Phát hiện QUẬN/HUYỆN cũ đã tách nhiều phường (mơ hồ)
+    ambiguous = None
+    if not matches:  # chỉ cảnh báo khi chưa map được phường cũ cụ thể
+        for core, v in _district_core.items():
+            if core in text_lower:
+                ambiguous = {
+                    'district': v.get('display', ''),
+                    'tinh': v.get('tinh', ''),
+                    'new_wards': v.get('new_wards', []),
+                }
+                break
+
     return {
         'old_matches': matches,
         'new_found': new_found,
+        'ambiguous': ambiguous,
         'is_old': len(matches) > 0,
-        'is_new': len(matches) == 0 and len(new_found) > 0,
+        'is_new': len(matches) == 0 and not ambiguous and len(new_found) > 0,
+        'is_ambiguous': ambiguous is not None,
     }
 
 
