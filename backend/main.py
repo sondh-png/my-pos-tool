@@ -1373,10 +1373,27 @@ def _resolve_offline(text, province_hint=None):
         for c in cands:
             if c['new'].lower() not in seen:
                 seen.add(c['new'].lower()); uniq.append(c)
+
+        # nếu chắc chắn: kiểm tra địa chỉ có ghi 1 phường mới KHÁC (ghi sai) không
+        stated_wrong = None
+        if len(uniq) == 1 and pc:
+            correct = _n(uniq[0]['new'])
+            for wc2, lst in resolver.get(pc, {}).items():
+                for c2 in lst:
+                    nn = _n(c2['new'])
+                    if nn == correct:
+                        continue
+                    if _re.search(r'(?:^|\s)' + _re.escape(nn) + r'(?:$|\s|,)', tn):
+                        stated_wrong = c2['new']
+                        break
+                if stated_wrong:
+                    break
+
         results.append({
             'old': o,
             'candidates': uniq,
             'confident': len(uniq) == 1,
+            'stated_wrong': stated_wrong,
         })
     return {
         'province': provs.get(pc, '') if pc else '',
