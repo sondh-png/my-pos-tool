@@ -1047,7 +1047,75 @@ def _save_chat(user_msg: str, assistant_msg: str):
         conn.execute("INSERT INTO chat_history (role, content) VALUES ('assistant', ?)", (assistant_msg[:4000],))
 
 
-# ── DEBUG ENDPOINT (xoá sau khi fix xong) ──────────────────────────
+# ══════════════════════════════════════════════════════════════════
+# ADDRESS CHECK – kiểm tra địa chỉ cũ/mới (sau 7/2025)
+# ══════════════════════════════════════════════════════════════════
+
+_ward_lookup: dict | None = None
+_new_ward_names: dict | None = None
+
+def _load_ward_data():
+    global _ward_lookup, _new_ward_names
+    if _ward_lookup is None:
+        _base = os.path.dirname(os.path.abspath(__file__))
+        try:
+            with open(os.path.join(_base, 'ward_lookup.json'), encoding='utf-8') as f:
+                _ward_lookup = json.load(f)
+        except Exception:
+            _ward_lookup = {}
+        try:
+            with open(os.path.join(_base, 'new_ward_names.json'), encoding='utf-8') as f:
+                _new_ward_names = json.load(f)
+        except Exception:
+            _new_ward_names = {}
+
+
+def _check_address(text: str) -> dict:
+    """
+    Tìm tên phường/xã cũ (trước 7/2025) trong đoạn text địa chỉ.
+    Trả về danh sách matches: [{old, new, tinh}]
+    """
+    _load_ward_data()
+    text_lower = text.lower()
+    matches = []
+    seen_new = set()
+    # Sort by length desc to match longer names first (avoid partial match)
+    for old_key, info in sorted(_ward_lookup.items(), key=lambda x: -len(x[0])):
+        if old_key in text_lower:
+            key = info['new'].lower()
+            if key not in seen_new:
+                seen_new.add(key)
+                matches.append({'old': info['old'], 'new': info['new'], 'tinh': info['tinh']})
+    # Check new names
+    new_found = []
+    for new_key, info in _new_ward_names.items():
+        if new_key in text_lower and new_key not in seen_new:
+            new_found.append({'name': info['name'], 'tinh': info['tinh']})
+    return {
+        'old_matches': matches,
+        'new_found': new_found,
+        'is_old': len(matches) > 0,
+        'is_new': len(matches) == 0 and len(new_found) > 0,
+    }
+
+
+class AddressCheckBatchRequest(BaseModel):
+    addresses: List[str]
+
+
+@app.get("/api/address-check")
+async def api_address_check(q: str):
+    """Kiểm tra địa chỉ có phải địa chỉ cũ (trước 7/2025) không."""
+    result = _check_address(q)
+    return result
+
+
+@app.post("/api/address-check/batch")
+async def api_address_check_batch(req: AddressCheckBatchRequest):
+    """Kiểm tra hàng loạt địa chỉ (cho tạo đơn song song)."""
+    return {'results': [_check_address(addr) for addr in req.addresses]}
+
+
 # ══════════════════════════════════════════════════════════════════
 # TELEGRAM BRIDGE
 # ══════════════════════════════════════════════════════════════════
