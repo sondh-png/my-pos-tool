@@ -1442,7 +1442,8 @@ def _resolve_offline(text, province_hint=None):
         cands = []
         for pk in prov_keys:
             for c in resolver.get(pk, {}).get(wc, []):
-                cands.append({'new': c['new'], 'dist': c['dist'], 'prov': pk})
+                cands.append({'new': c['new'], 'dist': c['dist'], 'prov': pk,
+                              'old_disp': c.get('old', '')})
         dist_matched = [c for c in cands if c['dist'] and _dist_in_text(c['dist'])]
 
         # Phường biến mất từ các ĐỢT TRƯỚC (2020-2021, 1/1/2025) — vd P24 Bình Thạnh,
@@ -1450,9 +1451,11 @@ def _resolve_offline(text, province_hint=None):
         # → tra bảng đợt trước, chuyển sang phường còn tồn tại rồi tra tiếp.
         if pc and not dist_matched:
             p1cands = []
+            _p1_disp = ('Phường ' + wc) if wc.isdigit() else wc
             for surv in _phase1_chain(pc, wc, tn):
                 for c in resolver.get(pc, {}).get(surv, []):
-                    p1cands.append({'new': c['new'], 'dist': c['dist'], 'prov': pc, 'via_phase1': wc})
+                    p1cands.append({'new': c['new'], 'dist': c['dist'], 'prov': pc,
+                                    'via_phase1': wc, 'old_disp': _p1_disp})
             if p1cands:
                 cands = p1cands
                 dist_matched = [c for c in cands if c['dist'] and _dist_in_text(c['dist'])]

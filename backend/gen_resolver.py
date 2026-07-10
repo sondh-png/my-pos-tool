@@ -107,7 +107,7 @@ def main():
             if not wc:
                 continue
             resolver.setdefault(pc, {}).setdefault(wc, [])
-            entry = {'new': new, 'dist': dist_str}
+            entry = {'new': new, 'dist': dist_str, 'old': oldw}   # old = tên gốc CÓ DẤU
             if entry not in resolver[pc][wc]:
                 resolver[pc][wc].append(entry)
 
