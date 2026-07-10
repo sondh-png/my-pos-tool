@@ -1375,6 +1375,9 @@ def _extract_old_wards(text):
     for m in _re.finditer(r'(?:phường|phuong|xã|xa|thị trấn|thi tran|thị xã|thi xa)\s+([^,()]+)',
                           text_nopar, _re.IGNORECASE):
         olds.append(_n(m.group(1)))
+    # Viết tắt 'p4', 'P.4', 'p 04' → phường 4 (đứng riêng, không phải phần của từ khác)
+    for m in _re.finditer(r'(?:^|[\s,])[pP]\.?\s*0*(\d{1,2})(?=$|[\s,])', text_nopar):
+        olds.append('phuong ' + m.group(1))
 
     # chuẩn hóa số phường
     out = []

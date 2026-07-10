@@ -685,9 +685,12 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
     const provName = addrMode === 'old'
       ? provinces.find(p => String(p.id) === String(provinceId))?.name || ''
       : provincesV3.find(p => String(p.id) === String(newProvinceId))?.name || ''
-    // Gửi FULL địa chỉ (đường + phường + tỉnh) vào resolver thông minh
+    // Gửi FULL địa chỉ (đường + phường + QUẬN + tỉnh) vào resolver thông minh
     // (chuỗi sáp nhập nhiều đợt + lọc quận + geo bản đồ — cùng não với bot Hermes)
-    const fullAddr = [rcvStreet, wardName, provName].filter(Boolean).join(', ')
+    const distName = addrMode === 'old'
+      ? (districts.find(d => String(d.id) === String(districtId))?.name || '')
+      : ''
+    const fullAddr = [rcvStreet, wardName, distName, provName].filter(Boolean).join(', ')
     if (!fullAddr.trim() || fullAddr.trim().length < 6) { setAddrWarning(null); return }
     const t = setTimeout(() => {
       apiFetch(`/api/address-resolve?q=${encodeURIComponent(fullAddr)}`)
@@ -695,7 +698,7 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
         .catch(() => {})
     }, 600)
     return () => clearTimeout(t)
-  }, [rcvStreet, wardCode, newWardIdV2, wards, newWards, addrMode, provinceId, newProvinceId, provinces, provincesV3])
+  }, [rcvStreet, wardCode, newWardIdV2, wards, newWards, addrMode, provinceId, districtId, districts, newProvinceId, provinces, provincesV3])
 
   // Load wards theo province cho địa chỉ mới (v3 — không cần district)
   useEffect(() => {
