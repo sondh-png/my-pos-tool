@@ -1,15 +1,31 @@
 {
-  "_note": "Sáp nhập ĐỢT 1 - NQ 1278/NQ-UBTVQH15 (hiệu lực 01/01/2025), TPHCM 80 phường -> 41. Data sapnhap.bando.com.vn chỉ ghi đợt 2 (7/2025) nên các phường biến mất từ đợt 1 phải tra bảng này trước. Key: ward số cũ -> list ward còn tồn tại (số hoặc tên).",
+  "_note": "Sáp nhập các ĐỢT TRƯỚC (2020-2021 NQ 1111... + đợt 1/1/2025 NQ 1278, 1237, 1252, 1277, 1203, 1202...). Data sapnhap.bando.com.vn chỉ ghi đợt cuối (7/2025) nên phường biến mất từ các đợt trước phải tra bảng này để nối chuỗi. Key: ward-core cũ -> list ward-core còn tồn tại đến 7/2025.",
   "ho chi minh": {
-    "quan 3": { "10": ["9"], "13": ["12"] },
-    "quan 4": { "6": ["9"], "10": ["8"], "14": ["15"] },
+    "quan 3": { "10": ["9"], "13": ["12"], "6": ["vo thi sau"], "7": ["vo thi sau"], "8": ["vo thi sau"] },
+    "quan 4": { "6": ["9"], "10": ["8"], "14": ["15"], "5": ["2"], "12": ["13"] },
     "quan 5": { "3": ["2"], "6": ["5"], "8": ["7"], "10": ["11"] },
     "quan 6": { "3": ["1"], "4": ["1"], "6": ["2"], "5": ["9", "2"], "10": ["11"], "13": ["14"] },
     "quan 8": { "1": ["rach ong"], "2": ["rach ong"], "3": ["rach ong"], "8": ["hung phu"], "9": ["hung phu"], "10": ["hung phu"], "11": ["xom cui"], "12": ["xom cui"], "13": ["xom cui"] },
-    "quan 10": { "7": ["6"], "5": ["8"], "11": ["10"] },
+    "quan 10": { "7": ["6"], "5": ["8"], "11": ["10"], "3": ["2"] },
     "quan 11": { "2": ["1"], "4": ["7"], "6": ["7"], "12": ["8"], "9": ["10"], "13": ["11"] },
     "quan binh thanh": { "3": ["1"], "15": ["2"], "21": ["19"], "24": ["14"], "6": ["5", "7"] },
     "quan go vap": { "4": ["1"], "7": ["1"], "9": ["8"], "13": ["14", "15"] },
-    "quan phu nhuan": { "3": ["4"], "17": ["15"] }
+    "quan phu nhuan": { "3": ["4"], "17": ["15"], "12": ["11"], "14": ["13"] },
+    "thanh pho vung tau": { "6": ["thang nhi"] }
+  },
+  "vinh long": {
+    "thanh pho ben tre": { "1": ["an hoi"], "2": ["an hoi"], "3": ["an hoi"], "4": ["an hoi"], "5": ["an hoi"], "6": ["son dong"] },
+    "thanh pho tra vinh": { "2": ["3"], "6": ["3"] },
+    "thanh pho vinh long": { "2": ["1"] }
+  },
+  "dong thap": {
+    "thanh pho my tho": { "7": ["1"], "3": ["2"], "8": ["2"] },
+    "thanh pho go cong": { "4": ["1"], "3": ["2"] }
+  },
+  "tay ninh": {
+    "thanh pho tan an": { "2": ["1"] }
+  },
+  "ca mau": {
+    "thanh pho ca mau": { "4": ["2", "tan xuyen"] }
   }
 }
