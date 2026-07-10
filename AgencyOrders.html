@@ -685,17 +685,15 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
     const provName = addrMode === 'old'
       ? provinces.find(p => String(p.id) === String(provinceId))?.name || ''
       : provincesV3.find(p => String(p.id) === String(newProvinceId))?.name || ''
-    // Địa chỉ MỚI: phường đã chọn từ danh mục v3 chính thức → không cần check tên phường,
-    // chỉ check phần đường tự gõ có chứa phường cũ không
-    const fullAddr = addrMode === 'new'
-      ? [rcvStreet, provName].filter(Boolean).join(', ')
-      : [rcvStreet, wardName, provName].filter(Boolean).join(', ')
-    if (!fullAddr.trim()) { setAddrWarning(null); return }
+    // Gửi FULL địa chỉ (đường + phường + tỉnh) vào resolver thông minh
+    // (chuỗi sáp nhập nhiều đợt + lọc quận + geo bản đồ — cùng não với bot Hermes)
+    const fullAddr = [rcvStreet, wardName, provName].filter(Boolean).join(', ')
+    if (!fullAddr.trim() || fullAddr.trim().length < 6) { setAddrWarning(null); return }
     const t = setTimeout(() => {
-      apiFetch(`/api/address-check?q=${encodeURIComponent(fullAddr)}`)
+      apiFetch(`/api/address-resolve?q=${encodeURIComponent(fullAddr)}`)
         .then(r => { if (r.ok) setAddrWarning(r.data) })
         .catch(() => {})
-    }, 400)
+    }, 600)
     return () => clearTimeout(t)
   }, [rcvStreet, wardCode, newWardIdV2, wards, newWards, addrMode, provinceId, newProvinceId, provinces, provincesV3])
 
@@ -1115,38 +1113,77 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
                 )}
               </div>
 
-              {/* ⚠️ Cảnh báo địa chỉ cũ/mới sau 7/2025 */}
-              {addrWarning && addrWarning.is_old && addrWarning.old_matches.length > 0 && (
-                <div style={{ marginTop:8, padding:'8px 10px', background:'#FEF3C7', border:'1px solid #F59E0B', borderRadius:6 }}>
-                  <div style={{ fontSize:12, fontWeight:600, color:'#92400E', marginBottom:4 }}>⚠️ Địa chỉ cũ (trước 7/2025)</div>
-                  {addrWarning.old_matches.map((m, i) => (
-                    <div key={i} style={{ fontSize:12, color:'#78350F', marginTop:2 }}>
-                      <span style={{ color:'#DC2626', textDecoration:'line-through' }}>{m.old}</span>
-                      {' → '}
-                      <span style={{ color:'#15803D', fontWeight:600 }}>{m.new}</span>
-                      {m.tinh ? <span style={{ color:'#6B7280' }}> ({m.tinh})</span> : null}
+              {/* 🧠 Kiểm tra phường thông minh (resolver: nhiều đợt sáp nhập + quận + geo) */}
+              {(() => {
+                const vnN = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').trim()
+                const selName = addrMode === 'new'
+                  ? (newWards.find(w => String(w.id) === String(newWardIdV2))?.name || '')
+                  : (wards.find(w => w.code === wardCode)?.name || '')
+                const rs = addrWarning && addrWarning.results ? addrWarning.results : []
+                const best = rs.find(it => it.confident && it.candidates && it.candidates.length)
+                  || rs.find(it => it.candidates && it.candidates.length > 1)
+
+                const boxY = { marginTop:8, padding:'8px 10px', background:'#FEF3C7', border:'1px solid #F59E0B', borderRadius:6 }
+                const boxG = { marginTop:8, padding:'8px 10px', background:'#DCFCE7', border:'1px solid #22C55E', borderRadius:6 }
+                const boxR = { marginTop:8, padding:'8px 10px', background:'#FEE2E2', border:'1px solid #EF4444', borderRadius:6 }
+
+                if (best && best.confident) {
+                  const correct = best.candidates[0].new
+                  const oldLb = best.candidates[0].old_disp || best.old
+                  const geo = best.geo ? ' — xác định theo vị trí đường trên bản đồ' : ''
+                  // Phường đã chọn KHÁC phường đúng → báo SAI + nút sửa nhanh
+                  if (selName && vnN(selName) !== vnN(correct)) {
+                    const fixTarget = addrMode === 'new' ? newWards.find(w => vnN(w.name) === vnN(correct)) : null
+                    return (
+                      <div style={boxR}>
+                        <div style={{ fontSize:12, fontWeight:600, color:'#991B1B', marginBottom:4 }}>
+                          ❌ SAI phường: đang chọn "<s>{selName}</s>" — đúng là <b>{correct}</b>
+                        </div>
+                        <div style={{ fontSize:12, color:'#7F1D1D' }}>({oldLb} (cũ) → {correct}{geo})</div>
+                        {fixTarget && (
+                          <button onClick={() => setNewWardIdV2(String(fixTarget.id))}
+                            style={{ marginTop:6, padding:'4px 10px', fontSize:12, fontWeight:600, color:'#fff',
+                                     background:'#16A34A', border:'none', borderRadius:4, cursor:'pointer' }}>
+                            ✔ Chọn đúng: {correct}
+                          </button>
+                        )}
+                      </div>
+                    )
+                  }
+                  // Khớp phường đã chọn (hoặc chưa chọn) → xanh
+                  return (
+                    <div style={boxG}>
+                      <div style={{ fontSize:12, fontWeight:600, color:'#14532D' }}>
+                        ✅ Phường/xã đúng: {correct}
+                      </div>
+                      <div style={{ fontSize:12, color:'#166534' }}>({oldLb} (cũ) → {correct}{geo})</div>
                     </div>
-                  ))}
-                </div>
-              )}
-              {addrWarning && addrWarning.is_new && addrWarning.new_found.length > 0 && (
-                <div style={{ marginTop:8, padding:'8px 10px', background:'#DCFCE7', border:'1px solid #22C55E', borderRadius:6 }}>
-                  <div style={{ fontSize:12, fontWeight:600, color:'#14532D' }}>✅ Địa chỉ mới (sau 7/2025)</div>
-                  {addrWarning.new_found.map((m, i) => (
-                    <div key={i} style={{ fontSize:12, color:'#166534', marginTop:2 }}>
-                      {m.name} {m.tinh ? <span style={{ color:'#6B7280' }}>({m.tinh})</span> : null}
+                  )
+                }
+                if (best && best.candidates.length > 1) {
+                  return (
+                    <div style={boxY}>
+                      <div style={{ fontSize:12, fontWeight:600, color:'#92400E', marginBottom:4 }}>
+                        ⚠️ Chưa chắc — {best.candidates[0].old_disp || best.old} (cũ) có thể là:
+                      </div>
+                      <div style={{ fontSize:12, color:'#78350F' }}>
+                        {best.candidates.slice(0, 8).map(c => c.new).join(', ')}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              )}
-              {/* Phường chọn từ danh mục v3 chính thức → luôn hợp lệ */}
-              {addrMode === 'new' && newWardIdV2 && !(addrWarning && addrWarning.is_old) && !(addrWarning && addrWarning.is_new) && (
-                <div style={{ marginTop:8, padding:'8px 10px', background:'#DCFCE7', border:'1px solid #22C55E', borderRadius:6 }}>
-                  <div style={{ fontSize:12, fontWeight:600, color:'#14532D' }}>
-                    ✅ Địa chỉ mới (sau 7/2025): {newWards.find(w => String(w.id) === String(newWardIdV2))?.name}
-                  </div>
-                </div>
-              )}
+                  )
+                }
+                // Không có dữ liệu phường cũ → phường chọn từ danh mục v3 luôn hợp lệ
+                if (addrMode === 'new' && newWardIdV2) {
+                  return (
+                    <div style={boxG}>
+                      <div style={{ fontSize:12, fontWeight:600, color:'#14532D' }}>
+                        ✅ Địa chỉ mới (sau 7/2025): {selName}
+                      </div>
+                    </div>
+                  )
+                }
+                return null
+              })()}
             </div>
 
             {/* Sản phẩm */}
