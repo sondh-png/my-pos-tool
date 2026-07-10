@@ -1671,14 +1671,10 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
                     if not it['confident'] and 2 <= len(it['candidates']) <= 6]
         if need_geo:
             pt = None
-            _dbg = {'queries': [], 'pt': None}
             for q_geo in _build_geo_queries(q, res.get('province', '')):
-                _dbg['queries'].append(q_geo)
                 pt = await _geocode_vn(q_geo)
                 if pt:
                     break
-            _dbg['pt'] = pt
-            res['geo_debug'] = _dbg
             if pt:
                 lon, lat = pt
                 wm = _load_resolver().get('ward_malk', {}).get(res['province_core'], {})
