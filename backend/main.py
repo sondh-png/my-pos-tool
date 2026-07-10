@@ -1691,6 +1691,18 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
                         item['confident'] = True
                         item['correct_ward'] = hits[0]['new']
                         item['geo'] = True
+                        # Nếu user ghi phường đó như phường HIỆN TẠI (không kèm 'cũ')
+                        # mà thực tế đường nằm ở phường khác → báo SAI rõ ràng
+                        correct_n = _n(hits[0]['new'])
+                        old_disp = hits[0].get('old_disp') or item['old']
+                        tn_nopar = _n(_re.sub(r'\([^)]*\)', ' ', q))
+                        old_n = _n(old_disp)
+                        wrote_old_as_current = (
+                            old_n in tn_nopar
+                            and not _re.search(_re.escape(old_n) + r'\s*cu\b', tn_nopar)
+                        )
+                        if wrote_old_as_current and correct_n not in tn_nopar:
+                            item['stated_wrong'] = old_disp
 
     # Tổng hợp mức độ chắc chắn
     confident = [it for it in res['results'] if it['confident']]
