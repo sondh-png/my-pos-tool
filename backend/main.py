@@ -1327,10 +1327,15 @@ def _detect_province(text, hint=None):
     for a, full in _PROV_ALIASES.items():
         if a in tn and full in provs:
             return full
-    # match tên tỉnh (dài trước để tránh trùng)
+    # match tên tỉnh MỚI (dài trước để tránh trùng)
     for pc in sorted(provs.keys(), key=lambda k: -len(k)):
         if pc in tn:
             return pc
+    # match tên tỉnh CŨ (Bến Tre, Tiền Giang, Bình Dương... đã sáp nhập)
+    old_aliases = data.get('province_aliases', {})
+    for oc in sorted(old_aliases.keys(), key=lambda k: -len(k)):
+        if oc in tn:
+            return old_aliases[oc]
     return None
 
 
@@ -1414,38 +1419,44 @@ def _resolve_offline(text, province_hint=None):
         wc = _ward_core(o)
         # danh sách province để tra: ưu tiên province xác định, else all
         prov_keys = [pc] if pc else list(resolver.keys())
+        def _dist_in_text(dist_str):
+            for part in dist_str.split('|'):
+                part = part.strip()
+                if not part:
+                    continue
+                # khớp nguyên cụm quận (vd 'quan 10' cho Quận số)
+                if len(part) >= 5 and part in tn:
+                    return True
+                core = part
+                for dp in ('quan ', 'huyen ', 'thi xa ', 'thanh pho ', 'tp '):
+                    if core.startswith(dp):
+                        core = core[len(dp):].strip()
+                        break
+                if core and len(core) >= 3 and core in tn:
+                    return True
+            return False
+
         cands = []
         for pk in prov_keys:
             for c in resolver.get(pk, {}).get(wc, []):
                 cands.append({'new': c['new'], 'dist': c['dist'], 'prov': pk})
-        # Phường biến mất từ ĐỢT 1 (NQ 1278, 1/1/2025 — vd P24 Bình Thạnh → P14)
-        # → chuyển sang phường còn tồn tại rồi tra tiếp đợt 2.
-        if not cands and pc:
+        dist_matched = [c for c in cands if c['dist'] and _dist_in_text(c['dist'])]
+
+        # Phường biến mất từ các ĐỢT TRƯỚC (2020-2021, 1/1/2025) — vd P24 Bình Thạnh,
+        # P7 Quận 3, P2 Quận 8 — bucket đợt-2 không có entry khớp quận
+        # → tra bảng đợt trước, chuyển sang phường còn tồn tại rồi tra tiếp.
+        if pc and not dist_matched:
+            p1cands = []
             for surv in _phase1_chain(pc, wc, tn):
                 for c in resolver.get(pc, {}).get(surv, []):
-                    cands.append({'new': c['new'], 'dist': c['dist'], 'prov': pc, 'via_phase1': wc})
-        # lọc theo quận/huyện nếu text có nhắc (so theo LÕI tên quận, bỏ prefix)
-        if len(cands) > 1:
-            def _dist_in_text(dist_str):
-                for part in dist_str.split('|'):
-                    part = part.strip()
-                    if not part:
-                        continue
-                    # khớp nguyên cụm quận (vd 'quan 10' cho Quận số)
-                    if len(part) >= 5 and part in tn:
-                        return True
-                    core = part
-                    for dp in ('quan ', 'huyen ', 'thi xa ', 'thanh pho ', 'tp '):
-                        if core.startswith(dp):
-                            core = core[len(dp):].strip()
-                            break
-                    if core and len(core) >= 3 and core in tn:
-                        return True
-                return False
-            filtered = [c for c in cands if c['dist'] and _dist_in_text(c['dist'])]
-            # giữ nhóm khớp quận (dù còn >1) để loại các quận khác
-            if filtered:
-                cands = filtered
+                    p1cands.append({'new': c['new'], 'dist': c['dist'], 'prov': pc, 'via_phase1': wc})
+            if p1cands:
+                cands = p1cands
+                dist_matched = [c for c in cands if c['dist'] and _dist_in_text(c['dist'])]
+
+        # giữ nhóm khớp quận (dù còn >1) để loại các quận khác
+        if dist_matched:
+            cands = dist_matched
         # nếu địa chỉ đã ghi sẵn tên phường MỚI → chọn đúng cái đó
         if len(cands) > 1:
             named = [c for c in cands if _n(c['new']) in tn]

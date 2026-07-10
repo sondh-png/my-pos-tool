@@ -71,6 +71,21 @@ def main():
     prov_by_ma = {x['ma']: x['ten'] for x in cap_tinh}         # magoc -> tên tỉnh hiển thị
     provinces = {prov_core(v): v for v in prov_by_ma.values()}
 
+    # Alias tỉnh CŨ -> core tỉnh MỚI (parse từ truocsapnhap cấp tỉnh,
+    # vd 'thành phố Cần Thơ, tỉnh Sóc Trăng và tỉnh Hậu Giang' -> soc trang: can tho)
+    province_aliases = {}
+    for x in cap_tinh:
+        new_core = prov_core(x['ten'])
+        truoc = x.get('truocsapnhap', '')
+        if 'giu nguyen' in norm(truoc):
+            continue
+        parts = re.split(r',| và | va ', truoc)
+        for p in parts:
+            core = prov_core(p.strip())
+            core = core.replace('tphcm', 'ho chi minh').strip()
+            if core and core != new_core and len(core) >= 3:
+                province_aliases[core] = new_core
+
     paren_re = re.compile(r'\(([^)]+)\)')
     resolver = {}
     for x in cap_xa:
@@ -96,7 +111,7 @@ def main():
             if entry not in resolver[pc][wc]:
                 resolver[pc][wc].append(entry)
 
-    out = {'provinces': provinces, 'resolver': resolver}
+    out = {'provinces': provinces, 'province_aliases': province_aliases, 'resolver': resolver}
     with open(OUT, 'w', encoding='utf-8') as f:
         json.dump(out, f, ensure_ascii=False, separators=(',', ':'))
 
