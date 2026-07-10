@@ -1134,9 +1134,10 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
                   const correct = best.candidates[0].new
                   const oldLb = best.candidates[0].old_disp || best.old
                   const geo = best.geo ? ' — xác định theo vị trí đường trên bản đồ' : ''
-                  // Phường đã chọn KHÁC phường đúng → báo SAI + nút sửa nhanh
-                  if (selName && vnN(selName) !== vnN(correct)) {
-                    const fixTarget = addrMode === 'new' ? newWards.find(w => vnN(w.name) === vnN(correct)) : null
+                  // CHỈ chế độ ĐỊA CHỈ MỚI: phường chọn khác phường đúng → báo SAI + nút sửa
+                  // (chế độ CŨ chọn phường cũ là chủ ý — GHN API cũ cần phường cũ)
+                  if (addrMode === 'new' && selName && vnN(selName) !== vnN(correct)) {
+                    const fixTarget = newWards.find(w => vnN(w.name) === vnN(correct))
                     return (
                       <div style={boxR}>
                         <div style={{ fontSize:12, fontWeight:600, color:'#991B1B', marginBottom:4 }}>
@@ -1153,7 +1154,20 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
                       </div>
                     )
                   }
-                  // Khớp phường đã chọn (hoặc chưa chọn) → xanh
+                  // Chế độ CŨ: thông tin tham khảo phường mới tương ứng
+                  if (addrMode === 'old') {
+                    return (
+                      <div style={boxG}>
+                        <div style={{ fontSize:12, fontWeight:600, color:'#14532D' }}>
+                          ✅ Địa chỉ cũ hợp lệ{selName ? `: ${selName}` : ''}
+                        </div>
+                        <div style={{ fontSize:12, color:'#166534' }}>
+                          Sau 7/2025 thuộc: <b>{correct}</b>{geo}
+                        </div>
+                      </div>
+                    )
+                  }
+                  // Chế độ MỚI, khớp phường đã chọn (hoặc chưa chọn) → xanh
                   return (
                     <div style={boxG}>
                       <div style={{ fontSize:12, fontWeight:600, color:'#14532D' }}>
