@@ -1147,6 +1147,10 @@ def _check_address(text: str) -> dict:
     for old_key, info in sorted(_ward_lookup.items(), key=lambda x: -len(x[0])):
         if not any(old_key.startswith(p) for p in _ADMIN_PREFIXES):
             continue
+        # Tên vừa là phường CŨ (nơi khác) vừa là phường MỚI hợp lệ (VD: Phường Bình Thạnh)
+        # → không được coi là cũ; để nhánh new_found xử lý
+        if old_key in _new_ward_names:
+            continue
         if _bounded(old_key):
             key = info['new'].lower()
             if key not in seen_new:

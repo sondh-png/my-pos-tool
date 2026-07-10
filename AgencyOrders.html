@@ -682,7 +682,10 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
     const wardName = addrMode === 'old'
       ? wards.find(w => w.code === wardCode)?.name || ''
       : newWards.find(w => String(w.id) === String(newWardIdV2))?.name || ''
-    const fullAddr = [rcvStreet, wardName].filter(Boolean).join(' ')
+    const provName = addrMode === 'old'
+      ? provinces.find(p => String(p.id) === String(provinceId))?.name || ''
+      : provincesV3.find(p => String(p.id) === String(newProvinceId))?.name || ''
+    const fullAddr = [rcvStreet, wardName, provName].filter(Boolean).join(', ')
     if (!fullAddr.trim()) { setAddrWarning(null); return }
     const t = setTimeout(() => {
       apiFetch(`/api/address-check?q=${encodeURIComponent(fullAddr)}`)
@@ -690,7 +693,7 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
         .catch(() => {})
     }, 400)
     return () => clearTimeout(t)
-  }, [rcvStreet, wardCode, newWardIdV2, wards, newWards, addrMode])
+  }, [rcvStreet, wardCode, newWardIdV2, wards, newWards, addrMode, provinceId, newProvinceId, provinces, provincesV3])
 
   // Load wards theo province cho địa chỉ mới (v3 — không cần district)
   useEffect(() => {
