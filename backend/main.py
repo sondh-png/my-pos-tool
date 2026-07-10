@@ -1252,6 +1252,37 @@ def _ward_core(w):
     return n
 
 
+_phase1 = None
+
+def _load_phase1():
+    """Bảng sáp nhập đợt 1 (NQ 1278, 01/01/2025) — data sapnhap chỉ có đợt 2."""
+    global _phase1
+    if _phase1 is None:
+        base = os.path.dirname(os.path.abspath(__file__))
+        try:
+            with open(os.path.join(base, 'phase1_merges.json'), encoding='utf-8') as f:
+                _phase1 = {k: v for k, v in json.load(f).items() if not k.startswith('_')}
+        except Exception:
+            _phase1 = {}
+    return _phase1
+
+
+def _phase1_chain(pc, wc, tn):
+    """Nếu phường số biến mất từ đợt 1 (vd P24 Bình Thạnh) → trả list key phường
+    còn tồn tại để tra tiếp đợt 2. Chỉ áp khi text có nhắc đúng quận."""
+    p1 = _load_phase1().get(pc, {})
+    out = []
+    for dkey, mapping in p1.items():
+        core = dkey
+        for dp in ('quan ', 'huyen ', 'thi xa ', 'thanh pho '):
+            if core.startswith(dp):
+                core = core[len(dp):].strip()
+                break
+        if core and core in tn and wc in mapping:
+            out.extend(mapping[wc])
+    return out
+
+
 def _confusable_group(pc, name):
     """Tìm nhóm phường mới cùng gốc tên trong tỉnh (An Nhơn, An Nhơn Bắc/Đông...).
     Trả list ≥2 nếu 'name' là 1 phần của nhóm dễ nhầm."""
@@ -1387,6 +1418,12 @@ def _resolve_offline(text, province_hint=None):
         for pk in prov_keys:
             for c in resolver.get(pk, {}).get(wc, []):
                 cands.append({'new': c['new'], 'dist': c['dist'], 'prov': pk})
+        # Phường biến mất từ ĐỢT 1 (NQ 1278, 1/1/2025 — vd P24 Bình Thạnh → P14)
+        # → chuyển sang phường còn tồn tại rồi tra tiếp đợt 2.
+        if not cands and pc:
+            for surv in _phase1_chain(pc, wc, tn):
+                for c in resolver.get(pc, {}).get(surv, []):
+                    cands.append({'new': c['new'], 'dist': c['dist'], 'prov': pc, 'via_phase1': wc})
         # lọc theo quận/huyện nếu text có nhắc (so theo LÕI tên quận, bỏ prefix)
         if len(cands) > 1:
             def _dist_in_text(dist_str):
