@@ -1509,7 +1509,7 @@ def _resolve_offline(text, province_hint=None):
 
 
 async def _geocode_vn(q):
-    """Geocode miễn phí qua OSM Nominatim → (lon, lat) hoặc None."""
+    """Geocode miễn phí: OSM Nominatim, fallback Photon → (lon, lat) hoặc None."""
     import httpx
     try:
         async with httpx.AsyncClient(timeout=10) as client:
@@ -1522,7 +1522,40 @@ async def _geocode_vn(q):
             return float(js[0]['lon']), float(js[0]['lat'])
     except Exception as e:
         print(f"[geocode] {e}", flush=True)
+    # Fallback: Photon (fuzzy hơn, chịu được số nhà kiểu 266/10)
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get('https://photon.komoot.io/api/',
+                                 params={'q': q, 'limit': 1})
+        fs = r.json().get('features', [])
+        if fs:
+            lon, lat = fs[0]['geometry']['coordinates'][:2]
+            return float(lon), float(lat)
+    except Exception as e:
+        print(f"[geocode-photon] {e}", flush=True)
     return None
+
+
+def _build_geo_queries(text, province_disp):
+    """Dựng các query geocode: bỏ ngoặc, bỏ cụm phường/xã (có thể sai),
+    bỏ số nhà — vì Nominatim fail khi có phường sai hoặc số nhà kiểu 266/10."""
+    t = _re.sub(r'\([^)]*\)', ' ', text or '')
+    queries = []
+    # 1) bỏ cụm 'phường/xã X'
+    t1 = _re.sub(r'(?i)(?:phường|phuong|xã|thị trấn|p\.)\s*[^,]+,?', ' ', t)
+    t1 = ' '.join(t1.split())
+    if t1:
+        queries.append(t1)
+    # 2) tên đường (bỏ số nhà đầu) + đoạn quận/huyện + tỉnh
+    segs = [s.strip() for s in t.split(',') if s.strip()]
+    if segs:
+        street = _re.sub(r'^[\s\d/\-]+', '', segs[0]).strip()
+        dist = next((s for s in segs[1:] if _re.search(r'(?i)quận|huyện|q\.|thị xã|tp', s)), '')
+        parts = [p for p in (street, dist, province_disp) if p]
+        q2 = ', '.join(parts)
+        if q2 and q2 not in queries:
+            queries.append(q2)
+    return queries
 
 
 _poly_cache: dict = {}
@@ -1624,8 +1657,11 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
         need_geo = [it for it in res['results']
                     if not it['confident'] and 2 <= len(it['candidates']) <= 6]
         if need_geo:
-            q_geo = _re.sub(r'\([^)]*\)', ' ', q).strip()
-            pt = await _geocode_vn(q_geo)
+            pt = None
+            for q_geo in _build_geo_queries(q, res.get('province', '')):
+                pt = await _geocode_vn(q_geo)
+                if pt:
+                    break
             if pt:
                 lon, lat = pt
                 wm = _load_resolver().get('ward_malk', {}).get(res['province_core'], {})
