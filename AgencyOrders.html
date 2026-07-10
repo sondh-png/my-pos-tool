@@ -685,7 +685,11 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
     const provName = addrMode === 'old'
       ? provinces.find(p => String(p.id) === String(provinceId))?.name || ''
       : provincesV3.find(p => String(p.id) === String(newProvinceId))?.name || ''
-    const fullAddr = [rcvStreet, wardName, provName].filter(Boolean).join(', ')
+    // Địa chỉ MỚI: phường đã chọn từ danh mục v3 chính thức → không cần check tên phường,
+    // chỉ check phần đường tự gõ có chứa phường cũ không
+    const fullAddr = addrMode === 'new'
+      ? [rcvStreet, provName].filter(Boolean).join(', ')
+      : [rcvStreet, wardName, provName].filter(Boolean).join(', ')
     if (!fullAddr.trim()) { setAddrWarning(null); return }
     const t = setTimeout(() => {
       apiFetch(`/api/address-check?q=${encodeURIComponent(fullAddr)}`)
@@ -1133,6 +1137,14 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
                       {m.name} {m.tinh ? <span style={{ color:'#6B7280' }}>({m.tinh})</span> : null}
                     </div>
                   ))}
+                </div>
+              )}
+              {/* Phường chọn từ danh mục v3 chính thức → luôn hợp lệ */}
+              {addrMode === 'new' && newWardIdV2 && !(addrWarning && addrWarning.is_old) && !(addrWarning && addrWarning.is_new) && (
+                <div style={{ marginTop:8, padding:'8px 10px', background:'#DCFCE7', border:'1px solid #22C55E', borderRadius:6 }}>
+                  <div style={{ fontSize:12, fontWeight:600, color:'#14532D' }}>
+                    ✅ Địa chỉ mới (sau 7/2025): {newWards.find(w => String(w.id) === String(newWardIdV2))?.name}
+                  </div>
                 </div>
               )}
             </div>
