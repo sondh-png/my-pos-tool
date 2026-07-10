@@ -1537,24 +1537,37 @@ async def _geocode_vn(q):
 
 
 def _build_geo_queries(text, province_disp):
-    """Dựng các query geocode: bỏ ngoặc, bỏ cụm phường/xã (có thể sai),
-    bỏ số nhà — vì Nominatim fail khi có phường sai hoặc số nhà kiểu 266/10."""
+    """Dựng các query geocode. Nominatim fail khi query chứa 'quận/phường/thành phố'
+    hoặc số nhà kiểu 266/10 → phải bỏ hết prefix hành chính + cụm phường + số nhà."""
     t = _re.sub(r'\([^)]*\)', ' ', text or '')
-    queries = []
-    # 1) bỏ cụm 'phường/xã X'
-    t1 = _re.sub(r'(?i)(?:phường|phuong|xã|thị trấn|p\.)\s*[^,]+,?', ' ', t)
-    t1 = ' '.join(t1.split())
-    if t1:
-        queries.append(t1)
-    # 2) tên đường (bỏ số nhà đầu) + đoạn quận/huyện + tỉnh
+
+    def _clean_admin(s):
+        # bỏ prefix hành chính, giữ tên riêng: 'quận tân phú' -> 'tân phú'
+        return _re.sub(r'(?i)\b(?:quận|huyện|thị xã|thị trấn|thành phố|tỉnh|q\.|tp\.?|h\.)\s*',
+                       '', s).strip(' ,')
+
+    prov_clean = _clean_admin(province_disp or '')
     segs = [s.strip() for s in t.split(',') if s.strip()]
+    queries = []
     if segs:
         street = _re.sub(r'^[\s\d/\-]+', '', segs[0]).strip()
-        dist = next((s for s in segs[1:] if _re.search(r'(?i)quận|huyện|q\.|thị xã|tp', s)), '')
-        parts = [p for p in (street, dist, province_disp) if p]
-        q2 = ', '.join(parts)
-        if q2 and q2 not in queries:
-            queries.append(q2)
+        dist_seg = next((s for s in segs[1:] if _re.search(r'(?i)quận|huyện|q\.|thị xã|tp', s)), '')
+        dist = _clean_admin(dist_seg)
+        # 1) đường + quận + tỉnh (dạng sạch — Nominatim thích nhất)
+        parts = [p for p in (street, dist, prov_clean) if p]
+        if parts:
+            queries.append(', '.join(parts))
+        # 2) kèm số nhà (Photon xử được)
+        if segs[0] != street:
+            parts2 = [p for p in (segs[0], dist, prov_clean) if p]
+            q2 = ', '.join(parts2)
+            if q2 not in queries:
+                queries.append(q2)
+    # 3) toàn văn bỏ cụm phường + prefix hành chính
+    t3 = _re.sub(r'(?i)(?:phường|phuong|xã|thị trấn|p\.)\s*[^,]+,?', ' ', t)
+    t3 = _clean_admin(' '.join(t3.split()))
+    if t3 and t3 not in queries:
+        queries.append(t3)
     return queries
 
 
