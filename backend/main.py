@@ -1508,6 +1508,70 @@ def _resolve_offline(text, province_hint=None):
     }
 
 
+async def _geocode_vn(q):
+    """Geocode miễn phí qua OSM Nominatim → (lon, lat) hoặc None."""
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(
+                'https://nominatim.openstreetmap.org/search',
+                params={'q': q, 'format': 'json', 'limit': 1, 'countrycodes': 'vn'},
+                headers={'User-Agent': 'my-pos-tool/1.0 (GHN address checker)'})
+        js = r.json()
+        if js:
+            return float(js[0]['lon']), float(js[0]['lat'])
+    except Exception as e:
+        print(f"[geocode] {e}", flush=True)
+    return None
+
+
+_poly_cache: dict = {}
+
+async def _ward_polygon(malk):
+    """Tải ranh giới phường (GeoJSON) từ sapnhap.bando.com.vn, cache theo malk."""
+    if malk in _poly_cache:
+        return _poly_cache[malk]
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.post('https://sapnhap.bando.com.vn/pread_json',
+                                  data={'id': malk},
+                                  headers={'Content-Type': 'application/x-www-form-urlencoded'})
+        gj = json.loads(r.text.strip())
+        polys = []
+        for f in gj.get('features', []):
+            g = f.get('geometry', {})
+            cs = g.get('coordinates', [])
+            if g.get('type') == 'Polygon':
+                polys.append(cs)
+            elif g.get('type') == 'MultiPolygon':
+                polys.extend(cs)
+        _poly_cache[malk] = polys
+        return polys
+    except Exception as e:
+        print(f"[polygon] {e}", flush=True)
+        return []
+
+
+def _point_in_polys(lon, lat, polys):
+    """Ray-casting point-in-polygon trên vòng ngoài mỗi polygon."""
+    def _in_ring(rg):
+        inside = False
+        n = len(rg)
+        for i in range(n):
+            x1, y1 = rg[i][0], rg[i][1]
+            x2, y2 = rg[(i + 1) % n][0], rg[(i + 1) % n][1]
+            if (y1 > lat) != (y2 > lat):
+                xin = (x2 - x1) * (lat - y1) / (y2 - y1) + x1
+                if lon < xin:
+                    inside = not inside
+        return inside
+    for poly in polys:
+        if poly and _in_ring(poly[0]):
+            return True
+    return False
+
+
 async def _resolve_live(province_core, ward_core):
     """Fallback: fetch p.co_dvhc live, tìm phường mới cho old ward trong tỉnh."""
     global _live_cache
@@ -1553,6 +1617,31 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
                 for lc in live_cands:
                     item['candidates'].append({'new': lc, 'dist': '', 'prov': res['province_core'], 'source': 'live'})
                 item['confident'] = len(item['candidates']) == 1
+
+    # GEO disambiguation: khi còn 2-6 ứng viên → geocode địa chỉ (OSM) rồi
+    # tra tọa độ vào ranh giới phường (polygon từ sapnhap.bando.com.vn).
+    if live and res.get('province_core'):
+        need_geo = [it for it in res['results']
+                    if not it['confident'] and 2 <= len(it['candidates']) <= 6]
+        if need_geo:
+            q_geo = _re.sub(r'\([^)]*\)', ' ', q).strip()
+            pt = await _geocode_vn(q_geo)
+            if pt:
+                lon, lat = pt
+                wm = _load_resolver().get('ward_malk', {}).get(res['province_core'], {})
+                for item in need_geo:
+                    hits = []
+                    for c in item['candidates']:
+                        malk = wm.get(_n(c['new']))
+                        if not malk:
+                            continue
+                        if _point_in_polys(lon, lat, await _ward_polygon(malk)):
+                            hits.append(c)
+                    if len(hits) == 1:
+                        item['candidates'] = hits
+                        item['confident'] = True
+                        item['correct_ward'] = hits[0]['new']
+                        item['geo'] = True
 
     # Tổng hợp mức độ chắc chắn
     confident = [it for it in res['results'] if it['confident']]
