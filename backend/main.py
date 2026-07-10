@@ -1323,19 +1323,22 @@ def _detect_province(text, hint=None):
         for a, full in _PROV_ALIASES.items():
             if a in _n(hint) and full in provs:
                 return full
-    tn = _n(text)
-    for a, full in _PROV_ALIASES.items():
-        if a in tn and full in provs:
-            return full
-    # match tên tỉnh MỚI (dài trước để tránh trùng)
-    for pc in sorted(provs.keys(), key=lambda k: -len(k)):
-        if pc in tn:
-            return pc
-    # match tên tỉnh CŨ (Bến Tre, Tiền Giang, Bình Dương... đã sáp nhập)
     old_aliases = data.get('province_aliases', {})
-    for oc in sorted(old_aliases.keys(), key=lambda k: -len(k)):
-        if oc in tn:
-            return old_aliases[oc]
+    # Tỉnh nằm ở CUỐI địa chỉ → quét từng đoạn (tách dấu phẩy) từ cuối lên,
+    # tránh tên đường trùng tỉnh ('12 Nguyễn Huệ' ≠ tỉnh Huế).
+    segments = [_n(s) for s in (text or '').split(',')]
+    for seg in reversed(segments):
+        def _in_seg(term):
+            return _re.search(r'(?:^|[\s(])' + _re.escape(term) + r'(?:$|[\s)])', seg) is not None
+        for a, full in _PROV_ALIASES.items():
+            if _in_seg(a) and full in provs:
+                return full
+        for pc in sorted(provs.keys(), key=lambda k: -len(k)):
+            if _in_seg(pc):
+                return pc
+        for oc in sorted(old_aliases.keys(), key=lambda k: -len(k)):
+            if _in_seg(oc):
+                return old_aliases[oc]
     return None
 
 
