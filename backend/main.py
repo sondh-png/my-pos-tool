@@ -1316,6 +1316,44 @@ def _load_resolver():
     return _resolver
 
 
+_dist_prov_map = None
+
+def _district_prov_map():
+    """Map lõi tên quận/huyện cũ -> tỉnh mới (chỉ giữ tên DUY NHẤT 1 tỉnh).
+    Dùng suy ra tỉnh khi địa chỉ không ghi tỉnh (VD 'Phường 24, Bình Thạnh')."""
+    global _dist_prov_map
+    if _dist_prov_map is not None:
+        return _dist_prov_map
+    data = _load_resolver()
+    m = {}
+    for pc, wards in data.get('resolver', {}).items():
+        for lst in wards.values():
+            for c in lst:
+                for part in (c.get('dist') or '').split('|'):
+                    part = part.strip()
+                    if not part:
+                        continue
+                    core = part
+                    for dp in ('quan ', 'huyen ', 'thi xa ', 'thanh pho ', 'tp '):
+                        if core.startswith(dp):
+                            core = core[len(dp):].strip()
+                            break
+                    if core and not core.isdigit() and len(core) >= 4:
+                        m.setdefault(core, set()).add(pc)
+    # thêm từ bảng phase1 (quận đã biến mất khỏi data đợt 2)
+    for pc, dists in _load_phase1().items():
+        for dk in dists.keys():
+            core = dk
+            for dp in ('quan ', 'huyen ', 'thi xa ', 'thanh pho '):
+                if core.startswith(dp):
+                    core = core[len(dp):].strip()
+                    break
+            if core and not core.isdigit() and len(core) >= 4:
+                m.setdefault(core, set()).add(pc)
+    _dist_prov_map = {k: list(v)[0] for k, v in m.items() if len(v) == 1}
+    return _dist_prov_map
+
+
 def _detect_province(text, hint=None):
     """Trả province_core từ hint hoặc dò trong text."""
     data = _load_resolver()
@@ -1343,6 +1381,12 @@ def _detect_province(text, hint=None):
         for oc in sorted(old_aliases.keys(), key=lambda k: -len(k)):
             if _in_seg(oc):
                 return old_aliases[oc]
+    # Cuối cùng: suy tỉnh từ tên QUẬN/HUYỆN duy nhất (VD 'Bình Thạnh' → HCM)
+    dp = _district_prov_map()
+    for seg in reversed(segments):
+        for core in sorted(dp.keys(), key=lambda k: -len(k)):
+            if _re.search(r'(?:^|[\s(])' + _re.escape(core) + r'(?:$|[\s).,])', seg):
+                return dp[core]
     return None
 
 
