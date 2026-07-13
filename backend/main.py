@@ -1559,11 +1559,31 @@ def _resolve_offline(text, province_hint=None):
     }
 
 
+GOONG_API_KEY = os.environ.get("GOONG_API_KEY", "")
+
 async def _geocode_vn(q, viewbox=None):
-    """Geocode miễn phí: OSM Nominatim, fallback Photon → (lon, lat) hoặc None.
+    """Geocode: Goong.io (data VN, số nhà hẻm chính xác) → Nominatim → Photon.
     viewbox=(lonmin,latmin,lonmax,latmax): giới hạn vùng tìm (tránh trùng tên
     đường ở thành phố khác trong cùng tỉnh mới, VD Kon Tum vs Quảng Ngãi)."""
     import httpx
+    # 1) Goong.io — geocoder Việt Nam, định vị được số nhà kiểu 405/15
+    if GOONG_API_KEY:
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                r = await client.get('https://rsapi.goong.io/geocode',
+                                     params={'address': q, 'api_key': GOONG_API_KEY})
+            js = r.json()
+            results = js.get('results') or []
+            if results:
+                loc = results[0].get('geometry', {}).get('location', {})
+                lon, lat = float(loc.get('lng', 0)), float(loc.get('lat', 0))
+                if lon and lat:
+                    # Goong không có tham số bbox → tự kiểm tra sau
+                    if not viewbox or (viewbox[0] <= lon <= viewbox[2]
+                                       and viewbox[1] <= lat <= viewbox[3]):
+                        return lon, lat
+        except Exception as e:
+            print(f"[geocode-goong] {e}", flush=True)
     params = {'q': q, 'format': 'json', 'limit': 1, 'countrycodes': 'vn'}
     if viewbox:
         params['viewbox'] = f"{viewbox[0]},{viewbox[1]},{viewbox[2]},{viewbox[3]}"
@@ -1631,16 +1651,18 @@ def _build_geo_queries(text, province_disp):
             street = street2
         dist_seg = next((s for s in segs[1:] if _re.search(r'(?i)quận|huyện|q\.|thị xã|tp', s)), '')
         dist = _clean_admin(dist_seg)
-        # 1) đường + quận + tỉnh (dạng sạch — Nominatim thích nhất)
-        parts = [p for p in (street, dist, prov_clean) if p]
-        if parts:
-            queries.append(', '.join(parts))
-        # 2) kèm số nhà (Photon xử được)
+        # 1) KÈM SỐ NHÀ trước — Goong định vị được số nhà hẻm (405/15...)
         if segs[0] != street:
             parts2 = [p for p in (segs[0], dist, prov_clean) if p]
             q2 = ', '.join(parts2)
-            if q2 not in queries:
+            if q2:
                 queries.append(q2)
+        # 2) đường + quận + tỉnh (dạng sạch — Nominatim thích nhất)
+        parts = [p for p in (street, dist, prov_clean) if p]
+        if parts:
+            q1 = ', '.join(parts)
+            if q1 not in queries:
+                queries.append(q1)
     # 3) toàn văn bỏ cụm phường + prefix hành chính
     t3 = _re.sub(r'(?i)(?:phường|phuong|xã|thị trấn|p\.)\s*[^,]+,?', ' ', t)
     t3 = _clean_admin(' '.join(t3.split()))
