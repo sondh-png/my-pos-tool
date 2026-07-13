@@ -1921,6 +1921,62 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
                         if wrote_old_as_current and correct_n not in tn_nopar:
                             item['stated_wrong'] = old_disp
 
+    # GEO VERIFY chiều xuôi: kể cả khi ĐÃ chắc theo phường cũ user ghi,
+    # kiểm chứng vị trí đường có thật sự nằm trong phường cũ đó không
+    # (VD ghi P27 Bình Thạnh nhưng đường XVNT nằm P25 → phải sửa).
+    if live and res.get('province_core'):
+        pc2 = res['province_core']
+        bounds = _load_old_bounds(pc2)
+        for item in res['results']:
+            if not item['confident'] or item.get('geo') or not item['candidates']:
+                continue
+            old_disp = item['candidates'][0].get('old_disp') or item['old']
+            def _ns2(s):
+                return ''.join(_n(s).split())
+            key = _ns2(old_disp)
+            # tìm ranh giới phường CŨ user ghi
+            stated_entry = None
+            for e in bounds:
+                if e['k'] == key or e['k2'] == key:
+                    dist_hint = _ns2(item['candidates'][0].get('dist', ''))
+                    if not dist_hint or e['d'] in dist_hint or _ns2(e['dist']) in dist_hint:
+                        stated_entry = e
+                        break
+            if not stated_entry:
+                continue
+            vb = _polys_bbox([stated_entry['g']['coordinates']]
+                             if stated_entry['g']['type'] == 'Polygon'
+                             else stated_entry['g']['coordinates'], pad=0.12)
+            pt = None
+            for q_geo in _build_geo_queries(q, res.get('province', '')):
+                pt = await _geocode_vn(q_geo, viewbox=vb)
+                if pt:
+                    break
+            if not pt:
+                continue
+            lon, lat = pt
+            if _pip_geom(lon, lat, stated_entry['g']):
+                continue  # đường đúng là nằm trong phường cũ đã ghi → OK
+            # đường nằm phường cũ KHÁC → tìm phường cũ thực + suy phường mới đúng
+            actual = next((e for e in bounds if _pip_geom(lon, lat, e['g'])), None)
+            if not actual:
+                continue
+            wc_act = _ward_core(actual['name'])
+            dist_act = _n(actual.get('dist', ''))
+            derived = None
+            for c in _load_resolver().get('resolver', {}).get(pc2, {}).get(wc_act, []):
+                if not dist_act or not c.get('dist') or dist_act in _n(c['dist']):
+                    derived = c
+                    break
+            if derived and _n(derived['new']) != _n(item['candidates'][0]['new']):
+                item['stated_wrong'] = old_disp
+                item['candidates'] = [{'new': derived['new'], 'dist': derived.get('dist', ''),
+                                       'prov': pc2, 'old_disp': actual['name']}]
+                item['correct_ward'] = derived['new']
+                item['geo'] = True
+                item['geo_actual_old'] = {'name': actual['name'], 'dist': actual['dist']}
+            break  # chỉ verify 1 item chính, tránh spam geocode
+
     # Tổng hợp mức độ chắc chắn
     confident = [it for it in res['results'] if it['confident']]
     res['status'] = (
