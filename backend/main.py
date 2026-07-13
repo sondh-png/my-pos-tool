@@ -1704,10 +1704,55 @@ def _reverse_lookup(text, province_hint=None):
     }
 
 
+_old_bounds_cache: dict = {}
+
+def _load_old_bounds(pc):
+    """Ranh giới phường/xã CŨ (GADM 4.1) theo tỉnh mới — lazy + cache."""
+    if pc in _old_bounds_cache:
+        return _old_bounds_cache[pc]
+    base = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(base, 'old_bounds', pc.replace(' ', '_') + '.json')
+    try:
+        with open(path, encoding='utf-8') as f:
+            data = json.load(f)
+    except Exception:
+        data = []
+    _old_bounds_cache[pc] = data
+    return data
+
+
+def _pip_geom(lon, lat, g):
+    cs = g.get('coordinates', [])
+    polys = [cs] if g.get('type') == 'Polygon' else cs
+    return _point_in_polys(lon, lat, polys)
+
+
 @app.get("/api/address-reverse")
-async def api_address_reverse(q: str, province: Optional[str] = None):
-    """Tra ngược địa chỉ MỚI (sau 7/2025) → thành phần phường/xã CŨ."""
-    return _reverse_lookup(q, province)
+async def api_address_reverse(q: str, province: Optional[str] = None, live: bool = True):
+    """
+    Tra ngược địa chỉ MỚI (sau 7/2025) → phường/xã CŨ.
+    Khi có tên đường → geocode + point-in-polygon với ranh giới CŨ (GADM)
+    để chỉ ra CHÍNH XÁC phường cũ, không chỉ liệt kê thành phần.
+    """
+    res = _reverse_lookup(q, province)
+    pc = _detect_province(q, province)
+
+    if live and pc:
+        bounds = _load_old_bounds(pc)
+        if bounds:
+            pt = None
+            for q_geo in _build_geo_queries(q, res.get('province', '')):
+                pt = await _geocode_vn(q_geo)
+                if pt:
+                    break
+            if pt:
+                lon, lat = pt
+                for e in bounds:
+                    if _pip_geom(lon, lat, e['g']):
+                        res['resolved_old'] = {'name': e['name'], 'dist': e['dist']}
+                        res['geo'] = True
+                        break
+    return res
 
 
 @app.get("/api/address-resolve")
