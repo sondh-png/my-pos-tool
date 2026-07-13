@@ -1602,6 +1602,13 @@ def _build_geo_queries(text, province_disp):
     queries = []
     if segs:
         street = _re.sub(r'^[\s\d/\-]+', '', segs[0]).strip()
+        # số nhà dạng chữ+số ('K154 H02/4 Vũ Lăng') → bỏ các token chứa số ở đầu
+        toks = street.split()
+        while toks and _re.search(r'\d', toks[0]):
+            toks.pop(0)
+        street2 = ' '.join(toks)
+        if street2 and street2 != street:
+            street = street2
         dist_seg = next((s for s in segs[1:] if _re.search(r'(?i)quận|huyện|q\.|thị xã|tp', s)), '')
         dist = _clean_admin(dist_seg)
         # 1) đường + quận + tỉnh (dạng sạch — Nominatim thích nhất)
@@ -1796,6 +1803,25 @@ async def api_address_reverse(q: str, province: Optional[str] = None, live: bool
                         res['resolved_old'] = {'name': e['name'], 'dist': e['dist']}
                         res['geo'] = True
                         break
+
+        # Từ phường CŨ (theo vị trí) suy ra phường MỚI đúng → đối chiếu với
+        # phường mới user GHI. Khác nhau = ghi SAI (VD: ghi Cẩm Lệ, đúng An Khê).
+        ro = res.get('resolved_old')
+        if ro and res.get('matches'):
+            wc_old = _ward_core(ro['name'])
+            dist_old = _n(ro.get('dist', ''))
+            derived = None
+            for c in _load_resolver().get('resolver', {}).get(pc, {}).get(wc_old, []):
+                dists = _n(c.get('dist', ''))
+                if not dist_old or not dists or dist_old in dists:
+                    derived = c['new']
+                    break
+            if derived:
+                res['derived_new'] = derived
+                stated = res['matches'][0]['new']
+                if _n(derived) != _n(stated):
+                    res['stated_wrong_new'] = stated
+                    res['correct_new'] = derived
     return res
 
 
