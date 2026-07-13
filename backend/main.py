@@ -1654,6 +1654,62 @@ async def _resolve_live(province_core, ward_core):
         return []
 
 
+def _reverse_lookup(text, province_hint=None):
+    """Tra NGƯỢC: địa chỉ/tên phường MỚI → các phường/xã CŨ đã gộp thành nó."""
+    data = _load_resolver()
+    provs = data.get('provinces', {})
+    nw_all = data.get('new_wards', {})
+    pc = _detect_province(text, province_hint)
+    tn = _n(text)
+
+    prov_keys = [pc] if pc else list(nw_all.keys())
+    matches = []
+    seen = set()
+    for pk in prov_keys:
+        bucket = nw_all.get(pk, {})
+        # match tên dài trước để tránh trùng cụm con (An Khánh vs An Khánh Đông)
+        for key in sorted(bucket.keys(), key=lambda k: -len(k)):
+            if len(key) < 5:
+                continue
+            if _re.search(r'(?:^|[\s,(])' + _re.escape(key) + r'(?:$|[\s,)])', tn):
+                info = bucket[key]
+                if info['name'].lower() in seen:
+                    continue
+                seen.add(info['name'].lower())
+                raw = info.get('old', '')
+                # tách danh sách cũ, giữ chú thích trong ngoặc
+                parts, buf, depth = [], '', 0
+                for ch in raw:
+                    if ch == '(':
+                        depth += 1
+                    elif ch == ')':
+                        depth -= 1
+                    if ch == ',' and depth == 0:
+                        parts.append(buf.strip()); buf = ''
+                    else:
+                        buf += ch
+                if buf.strip():
+                    parts.append(buf.strip())
+                matches.append({
+                    'new': info['name'],
+                    'prov': provs.get(pk, ''),
+                    'old_raw': raw,
+                    'old_list': parts,
+                    'kept': 'giữ nguyên' in raw.lower(),
+                })
+    return {
+        'province': provs.get(pc, '') if pc else '',
+        'matches': matches,
+        'found': len(matches) > 0,
+    }
+
+
+@app.get("/api/address-reverse")
+async def api_address_reverse(q: str, province: Optional[str] = None):
+    """Tra ngược địa chỉ MỚI (sau 7/2025) → thành phần phường/xã CŨ."""
+    return _reverse_lookup(q, province)
+
+
 @app.get("/api/address-resolve")
 async def api_address_resolve(q: str, province: Optional[str] = None, live: bool = True):
     """

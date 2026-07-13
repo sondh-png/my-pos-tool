@@ -572,7 +572,8 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
   const [newProvinceId, setNewProvinceId]   = useState('')
   const [newWards, setNewWards]             = useState([])
   const [newWardIdV2, setNewWardIdV2]       = useState('')
-  const [addrWarning, setAddrWarning]       = useState(null) // {old_matches:[{old,new,tinh}], is_old, is_new}
+  const [addrWarning, setAddrWarning]       = useState(null) // kết quả /api/address-resolve
+  const [revInfo, setRevInfo]               = useState(null) // tra ngược mới→cũ (/api/address-reverse)
 
   const [sndName, setSndName]               = useState('')
   const [sndPhone, setSndPhone]             = useState('')
@@ -699,6 +700,20 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
     }, 600)
     return () => clearTimeout(t)
   }, [rcvStreet, wardCode, newWardIdV2, wards, newWards, addrMode, provinceId, districtId, districts, newProvinceId, provinces, provincesV3])
+
+  // Tra ngược: phường MỚI đã chọn → gồm những phường/xã CŨ nào
+  useEffect(() => {
+    if (addrMode !== 'new' || !newWardIdV2) { setRevInfo(null); return }
+    const wName = newWards.find(w => String(w.id) === String(newWardIdV2))?.name || ''
+    const pName = provincesV3.find(p => String(p.id) === String(newProvinceId))?.name || ''
+    if (!wName) { setRevInfo(null); return }
+    const t = setTimeout(() => {
+      apiFetch(`/api/address-reverse?q=${encodeURIComponent([wName, pName].filter(Boolean).join(', '))}`)
+        .then(r => { if (r.ok) setRevInfo(r.data) })
+        .catch(() => {})
+    }, 300)
+    return () => clearTimeout(t)
+  }, [addrMode, newWardIdV2, newWards, newProvinceId, provincesV3])
 
   // Load wards theo province cho địa chỉ mới (v3 — không cần district)
   useEffect(() => {
@@ -1201,6 +1216,18 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
                 }
                 return null
               })()}
+
+              {/* 🔁 Tra ngược: phường mới đã chọn gồm những phường/xã cũ nào */}
+              {addrMode === 'new' && newWardIdV2 && revInfo && revInfo.found && !revInfo.matches[0].kept && (
+                <div style={{ marginTop:6, padding:'6px 10px', background:'#F3F4F6', border:'1px solid #D1D5DB', borderRadius:6 }}>
+                  <div style={{ fontSize:11, fontWeight:600, color:'#374151', marginBottom:2 }}>
+                    🔁 Trước 7/2025, {revInfo.matches[0].new} gồm:
+                  </div>
+                  <div style={{ fontSize:11, color:'#4B5563' }}>
+                    {revInfo.matches[0].old_list.slice(0, 8).join(' • ')}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Sản phẩm */}

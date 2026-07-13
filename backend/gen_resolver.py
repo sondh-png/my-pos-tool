@@ -112,14 +112,23 @@ def main():
                 resolver[pc][wc].append(entry)
 
     # Map tên phường MỚI -> malk (id lớp bản đồ, dùng tải polygon từ pread_json)
+    # + map NGƯỢC: phường mới -> danh sách phường/xã cũ (nguyên văn từ nghị quyết)
     ward_malk = {}
+    new_wards = {}
     for x in cap_xa:
         pc = prov_core(prov_by_ma.get(x.get('magoc', ''), ''))
-        if pc and x.get('malk'):
-            ward_malk.setdefault(pc, {})[norm(x['ten'])] = x['malk']
+        if not pc:
+            continue
+        key = norm(x['ten'])
+        if x.get('malk'):
+            ward_malk.setdefault(pc, {})[key] = x['malk']
+        new_wards.setdefault(pc, {})[key] = {
+            'name': x['ten'],
+            'old': x.get('truocsapnhap', ''),
+        }
 
     out = {'provinces': provinces, 'province_aliases': province_aliases,
-           'ward_malk': ward_malk, 'resolver': resolver}
+           'ward_malk': ward_malk, 'new_wards': new_wards, 'resolver': resolver}
     with open(OUT, 'w', encoding='utf-8') as f:
         json.dump(out, f, ensure_ascii=False, separators=(',', ':'))
 
