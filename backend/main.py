@@ -1559,14 +1559,20 @@ def _resolve_offline(text, province_hint=None):
     }
 
 
-async def _geocode_vn(q):
-    """Geocode miễn phí: OSM Nominatim, fallback Photon → (lon, lat) hoặc None."""
+async def _geocode_vn(q, viewbox=None):
+    """Geocode miễn phí: OSM Nominatim, fallback Photon → (lon, lat) hoặc None.
+    viewbox=(lonmin,latmin,lonmax,latmax): giới hạn vùng tìm (tránh trùng tên
+    đường ở thành phố khác trong cùng tỉnh mới, VD Kon Tum vs Quảng Ngãi)."""
     import httpx
+    params = {'q': q, 'format': 'json', 'limit': 1, 'countrycodes': 'vn'}
+    if viewbox:
+        params['viewbox'] = f"{viewbox[0]},{viewbox[1]},{viewbox[2]},{viewbox[3]}"
+        params['bounded'] = 1
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             r = await client.get(
                 'https://nominatim.openstreetmap.org/search',
-                params={'q': q, 'format': 'json', 'limit': 1, 'countrycodes': 'vn'},
+                params=params,
                 headers={'User-Agent': 'my-pos-tool/1.0 (GHN address checker)'})
         js = r.json()
         if js:
@@ -1575,9 +1581,11 @@ async def _geocode_vn(q):
         print(f"[geocode] {e}", flush=True)
     # Fallback: Photon (fuzzy hơn, chịu được số nhà kiểu 266/10)
     try:
+        pparams = {'q': q, 'limit': 1}
+        if viewbox:
+            pparams['bbox'] = f"{viewbox[0]},{viewbox[1]},{viewbox[2]},{viewbox[3]}"
         async with httpx.AsyncClient(timeout=10) as client:
-            r = await client.get('https://photon.komoot.io/api/',
-                                 params={'q': q, 'limit': 1})
+            r = await client.get('https://photon.komoot.io/api/', params=pparams)
         fs = r.json().get('features', [])
         if fs:
             lon, lat = fs[0]['geometry']['coordinates'][:2]
@@ -1585,6 +1593,18 @@ async def _geocode_vn(q):
     except Exception as e:
         print(f"[geocode-photon] {e}", flush=True)
     return None
+
+
+def _polys_bbox(polys, pad=0.15):
+    """BBox (lonmin,latmin,lonmax,latmax) của polygon list, nới thêm pad độ (~16km)."""
+    lons, lats = [], []
+    for poly in polys:
+        for ring in poly[:1]:
+            for pt in ring:
+                lons.append(pt[0]); lats.append(pt[1])
+    if not lons:
+        return None
+    return (min(lons) - pad, min(lats) - pad, max(lons) + pad, max(lats) + pad)
 
 
 def _build_geo_queries(text, province_disp):
@@ -1791,9 +1811,28 @@ async def api_address_reverse(q: str, province: Optional[str] = None, live: bool
     if live and pc:
         bounds = _load_old_bounds(pc)
         if bounds:
+            # Neo vùng tìm quanh phường MỚI user ghi (tránh trùng tên đường
+            # ở thành phố khác cùng tỉnh mới — VD Kon Tum vs Quảng Ngãi)
+            viewbox = None
+            if res.get('matches'):
+                wm = _load_resolver().get('ward_malk', {}).get(pc, {})
+                malk = wm.get(_n(res['matches'][0]['new']))
+                if malk:
+                    stated_polys = await _ward_polygon(malk)
+                    if stated_polys:
+                        viewbox = _polys_bbox(stated_polys, pad=0.15)
             pt = None
             for q_geo in _build_geo_queries(q, res.get('province', '')):
-                pt = await _geocode_vn(q_geo)
+                if viewbox:
+                    pt = await _geocode_vn(q_geo, viewbox=viewbox)
+                if not pt:
+                    pt = await _geocode_vn(q_geo)
+                    # điểm phải nằm gần vùng phường đã ghi, không thì bỏ (geocode lạc)
+                    if pt and viewbox:
+                        big = (viewbox[0] - 0.35, viewbox[1] - 0.35,
+                               viewbox[2] + 0.35, viewbox[3] + 0.35)
+                        if not (big[0] <= pt[0] <= big[2] and big[1] <= pt[1] <= big[3]):
+                            pt = None
                 if pt:
                     break
             if pt:
