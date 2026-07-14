@@ -1797,6 +1797,31 @@ def _reverse_lookup(text, province_hint=None):
     }
 
 
+def _derive_new_from_old(pc, wc, dist_norm):
+    """Suy phường MỚI từ (ward-core cũ + quận). Tra bucket đợt-2 trước;
+    không có → nối chuỗi phase-1 (phường biến mất đợt trước, vd P10 Q8→Hưng Phú)."""
+    resolver = _load_resolver().get('resolver', {})
+    bucket = resolver.get(pc, {})
+    for c in bucket.get(wc, []):
+        cd = _n(c.get('dist', ''))
+        if not dist_norm or not cd or dist_norm in cd or cd in dist_norm:
+            return c
+    # phase-1 chain theo quận
+    for dk, mp in _load_phase1().get(pc, {}).items():
+        dkn = _n(dk)
+        if dist_norm and not (dist_norm in dkn or dkn in dist_norm):
+            continue
+        if wc in mp:
+            for surv in mp[wc]:
+                for c in bucket.get(surv, []):
+                    cd = _n(c.get('dist', ''))
+                    if not cd or dkn in cd or cd in dkn:
+                        return c
+                if bucket.get(surv):
+                    return bucket[surv][0]
+    return None
+
+
 _old_bounds_cache: dict = {}
 
 def _load_old_bounds(pc):
@@ -1869,14 +1894,8 @@ async def api_address_reverse(q: str, province: Optional[str] = None, live: bool
         # phường mới user GHI. Khác nhau = ghi SAI (VD: ghi Cẩm Lệ, đúng An Khê).
         ro = res.get('resolved_old')
         if ro and res.get('matches'):
-            wc_old = _ward_core(ro['name'])
-            dist_old = _n(ro.get('dist', ''))
-            derived = None
-            for c in _load_resolver().get('resolver', {}).get(pc, {}).get(wc_old, []):
-                dists = _n(c.get('dist', ''))
-                if not dist_old or not dists or dist_old in dists:
-                    derived = c['new']
-                    break
+            dcand = _derive_new_from_old(pc, _ward_core(ro['name']), _n(ro.get('dist', '')))
+            derived = dcand['new'] if dcand else None
             if derived:
                 res['derived_new'] = derived
                 stated = res['matches'][0]['new']
@@ -1950,13 +1969,8 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
                         actual = next((e for e in _load_old_bounds(pc_g)
                                        if _pip_geom(lon, lat, e['g'])), None)
                         if actual:
-                            wc_a = _ward_core(actual['name'])
-                            dist_a = _n(actual.get('dist', ''))
-                            derived = None
-                            for c in _load_resolver().get('resolver', {}).get(pc_g, {}).get(wc_a, []):
-                                if not dist_a or not c.get('dist') or dist_a in _n(c['dist']):
-                                    derived = c
-                                    break
+                            derived = _derive_new_from_old(
+                                pc_g, _ward_core(actual['name']), _n(actual.get('dist', '')))
                             if derived:
                                 item['candidates'] = [{'new': derived['new'],
                                                        'dist': derived.get('dist', ''),
@@ -2006,13 +2020,8 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
             actual = next((e for e in bounds if _pip_geom(lon, lat, e['g'])), None)
             if not actual:
                 continue
-            wc_act = _ward_core(actual['name'])
-            dist_act = _n(actual.get('dist', ''))
-            derived = None
-            for c in _load_resolver().get('resolver', {}).get(pc2, {}).get(wc_act, []):
-                if not dist_act or not c.get('dist') or dist_act in _n(c['dist']):
-                    derived = c
-                    break
+            derived = _derive_new_from_old(
+                pc2, _ward_core(actual['name']), _n(actual.get('dist', '')))
             if derived and _n(derived['new']) != _n(item['candidates'][0]['new']):
                 item['stated_wrong'] = old_disp
                 item['candidates'] = [{'new': derived['new'], 'dist': derived.get('dist', ''),

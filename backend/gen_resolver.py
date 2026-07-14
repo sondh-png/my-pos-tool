@@ -95,19 +95,32 @@ def main():
         if not pc:
             continue
         truoc = x.get('truocsapnhap', '')
-        # quận/huyện gợi ý trong ngoặc
-        dist_hints = [norm(m) for m in paren_re.findall(truoc)]
-        dist_str = ' | '.join(dist_hints)
-        core = paren_re.sub('', truoc)
-        for oldw in core.split(','):
-            oldw = oldw.strip()
-            if not oldw or len(oldw) < 2:
+        # Gán quận/huyện THEO TỪNG PHƯỜNG: hint trong ngoặc áp cho các phường
+        # đứng TRƯỚC nó (tính từ hint trước đó) — không gộp cả record,
+        # tránh 'Phường 10 (Quận 6)' dính nhầm '(Quận 8)' của phường khác.
+        pending = []          # [(ward_core, old_display)]
+        entries = []          # [(wc, old, dist_hint)]
+        for part in truoc.split(','):
+            part = part.strip()
+            if not part:
                 continue
-            wc = ward_core(oldw)
-            if not wc:
-                continue
+            hints = paren_re.findall(part)
+            wtext = paren_re.sub('', part).strip()
+            if wtext and len(wtext) >= 2:
+                wc = ward_core(wtext)
+                if wc:
+                    pending.append((wc, wtext))
+            if hints:
+                hint = norm(hints[-1])
+                for wc, wtext in pending:
+                    entries.append((wc, wtext, hint))
+                pending = []
+        for wc, wtext in pending:      # phường cuối không có ngoặc
+            entries.append((wc, wtext, ''))
+
+        for wc, wtext, hint in entries:
             resolver.setdefault(pc, {}).setdefault(wc, [])
-            entry = {'new': new, 'dist': dist_str, 'old': oldw}   # old = tên gốc CÓ DẤU
+            entry = {'new': new, 'dist': hint, 'old': wtext}   # old = tên gốc CÓ DẤU
             if entry not in resolver[pc][wc]:
                 resolver[pc][wc].append(entry)
 
