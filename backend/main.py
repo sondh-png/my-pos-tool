@@ -1561,11 +1561,17 @@ def _resolve_offline(text, province_hint=None):
 
 GOONG_API_KEY = os.environ.get("GOONG_API_KEY", "")
 
+# Độ chính xác của lần geocode gần nhất: True = tới SỐ NHÀ (đủ tin để phủ quyết
+# phường user ghi), False = chỉ tới tuyến đường (chỉ được gợi ý cảnh báo).
+_last_geocode_precise = False
+
 async def _geocode_vn(q, viewbox=None):
     """Geocode: Goong.io (data VN, số nhà hẻm chính xác) → Nominatim → Photon.
     viewbox=(lonmin,latmin,lonmax,latmax): giới hạn vùng tìm (tránh trùng tên
     đường ở thành phố khác trong cùng tỉnh mới, VD Kon Tum vs Quảng Ngãi)."""
     import httpx
+    global _last_geocode_precise
+    _last_geocode_precise = False
     # 1) Goong.io — geocoder Việt Nam, định vị được số nhà kiểu 405/15
     if GOONG_API_KEY:
         try:
@@ -1581,6 +1587,7 @@ async def _geocode_vn(q, viewbox=None):
                     # Goong không có tham số bbox → tự kiểm tra sau
                     if not viewbox or (viewbox[0] <= lon <= viewbox[2]
                                        and viewbox[1] <= lat <= viewbox[3]):
+                        _last_geocode_precise = True
                         return lon, lat
         except Exception as e:
             print(f"[geocode-goong] {e}", flush=True)
@@ -1596,6 +1603,7 @@ async def _geocode_vn(q, viewbox=None):
                 headers={'User-Agent': 'my-pos-tool/1.0 (GHN address checker)'})
         js = r.json()
         if js:
+            _last_geocode_precise = js[0].get('addresstype') in ('house', 'building')
             return float(js[0]['lon']), float(js[0]['lat'])
     except Exception as e:
         print(f"[geocode] {e}", flush=True)
@@ -1900,8 +1908,12 @@ async def api_address_reverse(q: str, province: Optional[str] = None, live: bool
                 res['derived_new'] = derived
                 stated = res['matches'][0]['new']
                 if _n(derived) != _n(stated):
-                    res['stated_wrong_new'] = stated
-                    res['correct_new'] = derived
+                    if _last_geocode_precise:
+                        res['stated_wrong_new'] = stated
+                        res['correct_new'] = derived
+                    else:
+                        # geocode chỉ tới tuyến đường → gợi ý, không khẳng định SAI
+                        res['geo_hint_new'] = derived
     return res
 
 
@@ -1976,8 +1988,10 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
                                                        'dist': derived.get('dist', ''),
                                                        'prov': pc_g,
                                                        'old_disp': actual['name']}]
-                                item['confident'] = True
-                                item['correct_ward'] = derived['new']
+                                # chỉ khẳng định khi geocode tới số nhà;
+                                # OSM (tuyến đường) → để 'chưa chắc' cho thành thật
+                                item['confident'] = bool(_last_geocode_precise)
+                                item['correct_ward'] = derived['new'] if _last_geocode_precise else None
                                 item['geo'] = True
 
     # GEO VERIFY chiều xuôi: kể cả khi ĐÃ chắc theo phường cũ user ghi,
@@ -2023,12 +2037,18 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
             derived = _derive_new_from_old(
                 pc2, _ward_core(actual['name']), _n(actual.get('dist', '')))
             if derived and _n(derived['new']) != _n(item['candidates'][0]['new']):
-                item['stated_wrong'] = old_disp
-                item['candidates'] = [{'new': derived['new'], 'dist': derived.get('dist', ''),
-                                       'prov': pc2, 'old_disp': actual['name']}]
-                item['correct_ward'] = derived['new']
-                item['geo'] = True
-                item['geo_actual_old'] = {'name': actual['name'], 'dist': actual['dist']}
+                if _last_geocode_precise:
+                    # Geocode tới SỐ NHÀ (Goong) → đủ tin để phủ quyết phường user ghi
+                    item['stated_wrong'] = old_disp
+                    item['candidates'] = [{'new': derived['new'], 'dist': derived.get('dist', ''),
+                                           'prov': pc2, 'old_disp': actual['name']}]
+                    item['correct_ward'] = derived['new']
+                    item['geo'] = True
+                    item['geo_actual_old'] = {'name': actual['name'], 'dist': actual['dist']}
+                else:
+                    # Chỉ tới TUYẾN ĐƯỜNG (OSM) → không phủ quyết, chỉ GỢI Ý cảnh báo
+                    item['geo_hint'] = {'new': derived['new'],
+                                        'old': actual['name'], 'dist': actual['dist']}
             break  # chỉ verify 1 item chính, tránh spam geocode
 
     # Tổng hợp mức độ chắc chắn
