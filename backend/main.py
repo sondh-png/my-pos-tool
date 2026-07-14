@@ -1942,6 +1942,29 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
                         )
                         if wrote_old_as_current and correct_n not in tn_nopar:
                             item['stated_wrong'] = old_disp
+                    elif not hits:
+                        # Điểm không thuộc ứng viên nào — 'phường cũ' trích được
+                        # có thể thật ra là tên QUẬN (vd 'Tân Phú'). Tra thẳng
+                        # ranh giới phường CŨ (local) → suy phường mới đúng.
+                        pc_g = res['province_core']
+                        actual = next((e for e in _load_old_bounds(pc_g)
+                                       if _pip_geom(lon, lat, e['g'])), None)
+                        if actual:
+                            wc_a = _ward_core(actual['name'])
+                            dist_a = _n(actual.get('dist', ''))
+                            derived = None
+                            for c in _load_resolver().get('resolver', {}).get(pc_g, {}).get(wc_a, []):
+                                if not dist_a or not c.get('dist') or dist_a in _n(c['dist']):
+                                    derived = c
+                                    break
+                            if derived:
+                                item['candidates'] = [{'new': derived['new'],
+                                                       'dist': derived.get('dist', ''),
+                                                       'prov': pc_g,
+                                                       'old_disp': actual['name']}]
+                                item['confident'] = True
+                                item['correct_ward'] = derived['new']
+                                item['geo'] = True
 
     # GEO VERIFY chiều xuôi: kể cả khi ĐÃ chắc theo phường cũ user ghi,
     # kiểm chứng vị trí đường có thật sự nằm trong phường cũ đó không
