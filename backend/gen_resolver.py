@@ -100,7 +100,7 @@ def main():
         # tránh 'Phường 10 (Quận 6)' dính nhầm '(Quận 8)' của phường khác.
         pending = []          # [(ward_core, old_display)]
         entries = []          # [(wc, old, dist_hint)]
-        for part in truoc.split(','):
+        for part in re.split(r',|\bvà\b', truoc):
             part = part.strip()
             if not part:
                 continue

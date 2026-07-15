@@ -1436,15 +1436,24 @@ def _extract_old_wards(text):
 
 def _scan_province_oldwards(pc, text_norm):
     """Quét tên xã/phường CŨ (theo bucket tỉnh) xuất hiện trong text — kể cả
-    không nằm trong ngoặc '(... cũ)'. Chỉ nhận tên ≥2 chữ, ≥6 ký tự, khớp nguyên cụm."""
+    không nằm trong ngoặc '(... cũ)'. Chỉ nhận tên ≥2 chữ, ≥6 ký tự, khớp nguyên cụm.
+    BỎ QUA tên trùng quận/huyện/TP/tỉnh (Hạ Long, Ngô Quyền, Đồng Nai...) trừ khi
+    text ghi rõ prefix xã/phường trước tên đó."""
     data = _load_resolver()
     bucket = data.get('resolver', {}).get(pc, {})
+    dmap = _district_prov_map()
+    prov_names = set(data.get('provinces', {}).keys()) | set(data.get('province_aliases', {}).keys())
     found = []
     for wc in bucket.keys():
         if len(wc) < 6 or ' ' not in wc:
             continue
-        if _re.search(r'(?:^|\s)' + _re.escape(wc) + r'(?:$|\s|,)', text_norm):
-            found.append(wc)
+        if not _re.search(r'(?:^|\s)' + _re.escape(wc) + r'(?:$|\s|,)', text_norm):
+            continue
+        # tên trùng quận/huyện hoặc tỉnh → chỉ nhận khi có prefix hành chính cấp xã
+        if wc in dmap or wc in prov_names:
+            if not _re.search(r'(?:xa|phuong|thi tran)\s+' + _re.escape(wc), text_norm):
+                continue
+        found.append(wc)
     # ưu tiên cụm dài nhất, bỏ cụm con
     found.sort(key=len, reverse=True)
     result = []
