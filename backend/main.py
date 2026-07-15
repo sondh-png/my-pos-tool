@@ -1467,6 +1467,10 @@ def _scan_province_oldwards(pc, text_norm):
         if wc in dmap or wc in prov_names or wc in dist_set:
             if not _re.search(r'(?:xa|phuong|thi tran)\s+' + _re.escape(wc), text_norm):
                 continue
+        # cụm đứng ngay sau SỐ NHÀ = tên ĐƯỜNG ('15 Trần Phú') → không phải xã cũ
+        if _re.search(r'\d[\w/-]*\s+' + _re.escape(wc) + r'(?:$|\s|,)', text_norm) \
+           and not _re.search(r'(?:xa|phuong|thi tran)\s+' + _re.escape(wc), text_norm):
+            continue
         found.append(wc)
     # ưu tiên cụm dài nhất, bỏ cụm con
     found.sort(key=len, reverse=True)
