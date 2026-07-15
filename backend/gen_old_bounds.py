@@ -86,6 +86,20 @@ def main():
         }
         buckets.setdefault(pc, []).append(entry)
 
+    # Danh sách QUẬN/HUYỆN cũ theo tỉnh mới (đầy đủ từ GADM) — dùng để
+    # scan không nhầm tên quận/huyện thành xã cũ (Ngô Quyền, Hạ Long, Hòn Đất...)
+    districts = {}
+    for pc, items in buckets.items():
+        s = set()
+        for e in items:
+            d = ' '.join(norm(e['dist']).split())
+            if d and len(d) >= 4 and not d.isdigit():
+                s.add(d)
+        districts[pc] = sorted(s)
+    with open(os.path.join(BASE, 'old_districts.json'), 'w', encoding='utf-8') as f:
+        json.dump(districts, f, ensure_ascii=False, separators=(',', ':'))
+    print(f"old_districts.json: {sum(len(v) for v in districts.values())} districts")
+
     os.makedirs(OUTDIR, exist_ok=True)
     total = 0
     for pc, items in buckets.items():

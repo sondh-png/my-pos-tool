@@ -1443,6 +1443,20 @@ def _scan_province_oldwards(pc, text_norm):
     bucket = data.get('resolver', {}).get(pc, {})
     dmap = _district_prov_map()
     prov_names = set(data.get('provinces', {}).keys()) | set(data.get('province_aliases', {}).keys())
+    # danh sách quận/huyện cũ đầy đủ (GADM) của tỉnh này
+    global _old_districts
+    try:
+        _old_districts
+    except NameError:
+        _old_districts = None
+    if _old_districts is None:
+        base = os.path.dirname(os.path.abspath(__file__))
+        try:
+            with open(os.path.join(base, 'old_districts.json'), encoding='utf-8') as f:
+                _old_districts = json.load(f)
+        except Exception:
+            _old_districts = {}
+    dist_set = set(_old_districts.get(pc, []))
     found = []
     for wc in bucket.keys():
         if len(wc) < 6 or ' ' not in wc:
@@ -1450,7 +1464,7 @@ def _scan_province_oldwards(pc, text_norm):
         if not _re.search(r'(?:^|\s)' + _re.escape(wc) + r'(?:$|\s|,)', text_norm):
             continue
         # tên trùng quận/huyện hoặc tỉnh → chỉ nhận khi có prefix hành chính cấp xã
-        if wc in dmap or wc in prov_names:
+        if wc in dmap or wc in prov_names or wc in dist_set:
             if not _re.search(r'(?:xa|phuong|thi tran)\s+' + _re.escape(wc), text_norm):
                 continue
         found.append(wc)
