@@ -2028,9 +2028,16 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
                     item['candidates'].append({'new': lc, 'dist': '', 'prov': res['province_core'], 'source': 'live'})
                 item['confident'] = len(item['candidates']) == 1
 
+    # Địa chỉ có ĐƯỜNG/số nhà không? Không có thì geocode vô nghĩa (chỉ ra
+    # điểm giữa quận) → BỎ QUA geo để khỏi sinh gợi ý rác.
+    _seg0 = _n((q or '').split(',')[0])
+    _admin0 = _seg0.startswith(('phuong ', 'xa ', 'quan ', 'huyen ', 'thi tran ',
+                                'thi xa ', 'tinh ', 'tp ', 'thanh pho '))
+    q_has_street = (not _admin0) and bool(_re.search(r'\d|duong|hem|kiet|so ', _seg0))
+
     # GEO disambiguation: khi còn 2-6 ứng viên → geocode địa chỉ (OSM) rồi
     # tra tọa độ vào ranh giới phường (polygon từ sapnhap.bando.com.vn).
-    if live and res.get('province_core'):
+    if live and q_has_street and res.get('province_core'):
         need_geo = [it for it in res['results']
                     if not it['confident'] and 2 <= len(it['candidates']) <= 6]
         if need_geo:
@@ -2091,7 +2098,7 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
     # GEO VERIFY chiều xuôi: kể cả khi ĐÃ chắc theo phường cũ user ghi,
     # kiểm chứng vị trí đường có thật sự nằm trong phường cũ đó không
     # (VD ghi P27 Bình Thạnh nhưng đường XVNT nằm P25 → phải sửa).
-    if live and res.get('province_core'):
+    if live and q_has_street and res.get('province_core'):
         pc2 = res['province_core']
         bounds = _load_old_bounds(pc2)
         for item in res['results']:
