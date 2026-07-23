@@ -2026,7 +2026,9 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
                 live_cands = await _resolve_live(res['province_core'], _ward_core(item['old']))
                 for lc in live_cands:
                     item['candidates'].append({'new': lc, 'dist': '', 'prov': res['province_core'], 'source': 'live'})
-                item['confident'] = len(item['candidates']) == 1
+                # live = khớp lỏng theo tên → KHÔNG tự tin (để geo/đường quyết,
+                # hoặc hiện 'chưa chắc' cho người chọn) — tránh trả bừa như 'Chư Pưh'
+                item['confident'] = False
 
     # Địa chỉ có ĐƯỜNG/số nhà không? Không có thì geocode vô nghĩa (chỉ ra
     # điểm giữa quận) → BỎ QUA geo để khỏi sinh gợi ý rác.
