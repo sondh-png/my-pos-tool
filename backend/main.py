@@ -2019,16 +2019,25 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
     """
     res = _resolve_offline(q, province)
 
-    # Fallback live CHỈ khi offline KHÔNG có ứng viên nào (tránh phá bộ đã lọc theo quận)
-    if live:
+    # Fallback khi offline KHÔNG có ứng viên nào.
+    if live and res.get('province_core'):
+        pcL = res['province_core']
         for item in res['results']:
-            if not item['candidates']:
-                live_cands = await _resolve_live(res['province_core'], _ward_core(item['old']))
-                for lc in live_cands:
-                    item['candidates'].append({'new': lc, 'dist': '', 'prov': res['province_core'], 'source': 'live'})
-                # live = khớp lỏng theo tên → KHÔNG tự tin (để geo/đường quyết,
-                # hoặc hiện 'chưa chắc' cho người chọn) — tránh trả bừa như 'Chư Pưh'
+            if item['candidates']:
+                continue
+            # (1) Nếu tên là 1 THỊ XÃ/nhóm phường cùng gốc (An Nhơn → An Nhơn
+            #     Bắc/Đông/Nam/Tây...) → liệt kê nhóm đó cho người chọn.
+            grp = _confusable_group(pcL, item['old'])
+            if len(grp) >= 2:
+                for g in grp:
+                    item['candidates'].append({'new': g, 'dist': '', 'prov': pcL, 'source': 'group'})
                 item['confident'] = False
+                continue
+            # (2) còn lại: live khớp lỏng theo tên (KHÔNG tự tin)
+            live_cands = await _resolve_live(pcL, _ward_core(item['old']))
+            for lc in live_cands:
+                item['candidates'].append({'new': lc, 'dist': '', 'prov': pcL, 'source': 'live'})
+            item['confident'] = False
 
     # Địa chỉ có ĐƯỜNG/số nhà không? Không có thì geocode vô nghĩa (chỉ ra
     # điểm giữa quận) → BỎ QUA geo để khỏi sinh gợi ý rác.
