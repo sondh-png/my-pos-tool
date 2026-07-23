@@ -43,6 +43,10 @@ CASES = [
     ("K154 H02/4 Vũ Lăng (Phường Hòa Phát Cũ), Đà Nẵng",     "Phường An Khê",     "số nhà chữ K154"),
     # P14 Q10 tách đôi (Diên Hồng/Hòa Hưng) — geo chọn giữa ứng viên hợp lệ
     ("7/28 thành thái, Phường 14, quận 10, hcm",             "Phường Diên Hồng",  "geo chọn giữa 2 ứng viên tách đôi"),
+    # Ghi phường MỚI/SAI + có tên đường → geo từ đường xác định đúng
+    ("298 Nguyễn Văn Linh, Xã Đông Sơn, Quảng Ngãi",         "Phường Trương Quang Trọng", "ghi ward mới sai→geo đường"),
+    # Thị xã An Nhơn tách nhiều phường + OSM thiếu đường → ambiguous, KHÔNG đoán bừa
+    ("87 Nguyễn Sinh Sắc, Phường An Nhơn, Gia Lai",          None,                "thị xã An Nhơn tách nhiều→ambiguous"),
 ]
 
 # reverse: (địa_chỉ, resolved_old kỳ vọng chứa, ghi chú)
