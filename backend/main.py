@@ -2152,6 +2152,38 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
                                         'old': actual['name'], 'dist': actual['dist']}
             break  # chỉ verify 1 item chính, tránh spam geocode
 
+    # FORWARD GEO FALLBACK: nhập phường MỚI/sai + có TÊN ĐƯỜNG mà tra tên không
+    # ra kết quả tin cậy → geocode đường, PIP ranh giới CŨ → suy phường mới đúng.
+    # (VD: "298 Nguyễn Văn Linh, Xã Đông Sơn (mới), Quảng Ngãi" → Trương Quang Trọng)
+    _has_good = any(it.get('confident') and it.get('candidates') and it.get('correct_ward')
+                    for it in res['results'])
+    if live and q_has_street and res.get('province_core') and not _has_good:
+        pc3 = res['province_core']
+        bounds3 = _load_old_bounds(pc3)
+        if bounds3:
+            pt = None
+            for q_geo in _build_geo_queries(q, res.get('province', '')):
+                pt = await _geocode_vn(q_geo)
+                if pt:
+                    break
+            if pt:
+                lon, lat = pt
+                actual3 = next((e for e in bounds3 if _pip_geom(lon, lat, e['g'])), None)
+                if actual3:
+                    d3 = _derive_new_from_old(pc3, _ward_core(actual3['name']),
+                                              _n(actual3.get('dist', '')))
+                    if d3:
+                        res['results'] = [{
+                            'old': actual3['name'],
+                            'candidates': [{'new': d3['new'], 'dist': d3.get('dist', ''),
+                                            'prov': pc3, 'old_disp': actual3['name']}],
+                            'confident': True,
+                            'correct_ward': d3['new'],
+                            'geo': True,
+                            'geo_actual_old': {'name': actual3['name'], 'dist': actual3['dist']},
+                            'from_street': True,
+                        }]
+
     # Tổng hợp mức độ chắc chắn
     confident = [it for it in res['results'] if it['confident']]
     res['status'] = (
