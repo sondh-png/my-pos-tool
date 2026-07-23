@@ -2161,9 +2161,23 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
         pc3 = res['province_core']
         bounds3 = _load_old_bounds(pc3)
         if bounds3:
+            # Neo vùng tìm vào ranh giới phường MỚI mày ghi (tránh trùng tên
+            # đường ở thành phố khác cùng tỉnh — VD Quảng Ngãi gộp Kon Tum)
+            vb3 = None
+            wm3 = _load_resolver().get('ward_malk', {}).get(pc3, {})
+            _stated = [_ward_core(o) for o in res.get('old_wards', [])]
+            for k, malk in wm3.items():
+                kc = k[k.find(' ') + 1:] if ' ' in k else k   # bỏ 'phuong/xa'
+                if any(sc and (kc == sc or k == sc) for sc in _stated):
+                    _polys = await _ward_polygon(malk)
+                    if _polys:
+                        vb3 = _polys_bbox(_polys, pad=0.12)
+                        break
             pt = None
             for q_geo in _build_geo_queries(q, res.get('province', '')):
-                pt = await _geocode_vn(q_geo)
+                pt = await _geocode_vn(q_geo, viewbox=vb3) if vb3 else None
+                if not pt and not vb3:
+                    pt = await _geocode_vn(q_geo)
                 if pt:
                     break
             if pt:
