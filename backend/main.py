@@ -1354,6 +1354,27 @@ def _district_prov_map():
     return _dist_prov_map
 
 
+_QUERY_PHRASES = [
+    'phường mới là gì', 'phường cũ là gì', 'xã mới là gì', 'xã cũ là gì',
+    'địa chỉ mới là gì', 'địa chỉ cũ là gì', 'mới là gì', 'cũ là gì', 'là gì',
+    'ra mới', 'ra cũ', 'về mới', 'về cũ', 'sau sáp nhập', 'trước sáp nhập',
+    'check mới', 'check cũ', 'kiểm tra', 'thuộc phường nào', 'phường nào',
+    'địa chỉ mới', 'địa chỉ cũ', 'phường mới', 'phường cũ', 'xã mới', 'xã cũ',
+    'giờ là', 'bây giờ là', 'hiện tại là', 'đổi thành', 'chuyển thành',
+]
+
+def _clean_query(q):
+    """Bỏ cụm hỏi ý định ('phường mới là gì'...) + coi . ; : như dấu phẩy
+    (ngăn cách phần địa chỉ) để không lẫn vào tên phường / hỏng detect tỉnh."""
+    import re as _r
+    s = q or ''
+    s = _r.sub(r'[.;:]+', ',', s)
+    for ph in _QUERY_PHRASES:
+        s = _r.sub(_r.escape(ph), ' ', s, flags=_r.IGNORECASE)
+    s = _r.sub(r'\s+', ' ', s).strip(' ,')
+    return s
+
+
 def _detect_province(text, hint=None):
     """Trả province_core từ hint hoặc dò trong text."""
     data = _load_resolver()
@@ -1482,6 +1503,7 @@ def _scan_province_oldwards(pc, text_norm):
 
 
 def _resolve_offline(text, province_hint=None):
+    text = _clean_query(text)
     data = _load_resolver()
     resolver = data.get('resolver', {})
     provs = data.get('provinces', {})
@@ -1784,6 +1806,7 @@ async def _resolve_live(province_core, ward_core):
 
 def _reverse_lookup(text, province_hint=None):
     """Tra NGƯỢC: địa chỉ/tên phường MỚI → các phường/xã CŨ đã gộp thành nó."""
+    text = _clean_query(text)
     data = _load_resolver()
     provs = data.get('provinces', {})
     nw_all = data.get('new_wards', {})
@@ -1954,6 +1977,7 @@ async def api_address_reverse(q: str, province: Optional[str] = None, live: bool
     Khi có tên đường → geocode + point-in-polygon với ranh giới CŨ (GADM)
     để chỉ ra CHÍNH XÁC phường cũ, không chỉ liệt kê thành phần.
     """
+    q = _clean_query(q)
     res = _reverse_lookup(q, province)
     pc = _detect_province(q, province)
 
@@ -2017,6 +2041,7 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
     Tra phường MỚI chính xác từ địa chỉ có ghi phường CŨ.
     - Offline trước; nếu không chắc và live=true → xác minh qua sapnhap.bando.com.vn.
     """
+    q = _clean_query(q)
     res = _resolve_offline(q, province)
 
     # Fallback khi offline KHÔNG có ứng viên nào.
