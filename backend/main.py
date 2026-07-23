@@ -1880,6 +1880,73 @@ def _pip_geom(lon, lat, g):
     return _point_in_polys(lon, lat, polys)
 
 
+# ══════════════════════════════════════════════════════════════════
+# CHUYỂN ĐỔI ĐỊA CHỈ cho BOT: hàng loạt / theo tọa độ
+# ══════════════════════════════════════════════════════════════════
+class ConvertBatchReq(BaseModel):
+    addresses: List[str]
+
+
+@app.post("/api/convert-batch")
+async def api_convert_batch(req: ConvertBatchReq):
+    """Chuyển hàng loạt: mỗi dòng 1 địa chỉ cũ dạng free-text → địa chỉ mới."""
+    out = []
+    for raw in req.addresses[:200]:
+        raw = (raw or '').strip()
+        if not raw:
+            continue
+        res = _resolve_offline(raw)
+        best = None
+        for it in res.get('results', []):
+            if it.get('confident') and it.get('candidates'):
+                best = it
+                break
+        if not best:
+            for it in res.get('results', []):
+                if it.get('candidates'):
+                    best = it
+                    break
+        if best and best.get('confident'):
+            c = best['candidates'][0]
+            out.append({'input': raw, 'status': 'ok',
+                        'new_ward': c['new'], 'province': res.get('province', ''),
+                        'old': c.get('old_disp') or best.get('old', '')})
+        elif best:
+            out.append({'input': raw, 'status': 'ambiguous',
+                        'candidates': [c['new'] for c in best['candidates'][:5]],
+                        'province': res.get('province', '')})
+        else:
+            out.append({'input': raw, 'status': 'not_found',
+                        'province': res.get('province', '')})
+    return {'results': out}
+
+
+@app.get("/api/convert-coords")
+async def api_convert_coords(lat: float, lng: float):
+    """Chuyển tọa độ → địa chỉ mới. PIP vào ranh giới phường CŨ (GADM, local)
+    rồi suy phường MỚI."""
+    base = os.path.dirname(os.path.abspath(__file__))
+    bdir = os.path.join(base, 'old_bounds')
+    try:
+        files = [f[:-5] for f in os.listdir(bdir) if f.endswith('.json')]
+    except Exception:
+        files = []
+    for pcfile in files:
+        pc = pcfile.replace('_', ' ')
+        for e in _load_old_bounds(pc):
+            if _pip_geom(lng, lat, e['g']):
+                c = _derive_new_from_old(pc, _ward_core(e['name']), _n(e.get('dist', '')))
+                provs = _load_resolver().get('provinces', {})
+                return {
+                    'ok': True,
+                    'lat': lat, 'lng': lng,
+                    'old': {'ward': e['name'], 'district': e.get('dist', '')},
+                    'new': {'ward': c['new'] if c else None,
+                            'province': provs.get(pc, '')},
+                }
+    return {'ok': False, 'error': 'Tọa độ không thuộc phường/xã nào (ngoài VN?)'}
+
+
 @app.get("/api/address-reverse")
 async def api_address_reverse(q: str, province: Optional[str] = None, live: bool = True):
     """
