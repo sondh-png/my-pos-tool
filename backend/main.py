@@ -2050,6 +2050,58 @@ async def api_convert_batch(req: ConvertBatchReq):
     return {'results': out}
 
 
+_NEW_WARDS_V3_CACHE = None
+
+def _load_new_wards_v3():
+    """Danh mục phường/xã MỚI 2025 (nguồn Chính phủ) có mã ward_id_v2 GHN dùng cho
+    v3. GHN public API chưa mở endpoint phường mới (trả null) → đây là nguồn chuẩn."""
+    global _NEW_WARDS_V3_CACHE
+    if _NEW_WARDS_V3_CACHE is None:
+        try:
+            p = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'new_wards_2025.json')
+            with open(p, encoding='utf-8') as f:
+                _NEW_WARDS_V3_CACHE = json.load(f)
+        except Exception:
+            _NEW_WARDS_V3_CACHE = []
+    return _NEW_WARDS_V3_CACHE
+
+
+def _strip_prov(s):
+    s = _n(s)
+    for pre in ('thanh pho ', 'tinh ', 'tp '):
+        if s.startswith(pre):
+            s = s[len(pre):]
+    return s.strip()
+
+
+def _strip_ward(s):
+    s = _n(s)
+    import re as _r
+    return _r.sub(r'^(phuong|xa|thi tran|tt)\s+', '', s).strip()
+
+
+@app.get("/api/ward-v3-id")
+async def api_ward_v3_id(province: str = "", ward: str = ""):
+    """Tra mã ward_id_v2 (GHN v3) của phường MỚI theo tỉnh — để tạo đơn
+    is_new_to_address=true. Verify phường có thật trong danh mục Chính phủ."""
+    prov_n = _strip_prov(province)
+    ward_n = _strip_ward(ward)
+    if not ward_n:
+        return {"found": False, "reason": "thiếu tên phường"}
+    for p in _load_new_wards_v3():
+        pn = _strip_prov(p.get('tentinhmoi', ''))
+        if not (pn == prov_n or (prov_n and (prov_n in pn or pn in prov_n))):
+            continue
+        for w in p.get('phuongxa', []):
+            if _strip_ward(w.get('tenphuongxa', '')) == ward_n:
+                return {"found": True, "ward_id_v2": w.get('maphuongxa'),
+                        "ward_name": w.get('tenphuongxa'),
+                        "province": p.get('tentinhmoi')}
+        return {"found": False, "reason": "phường không có trong tỉnh này",
+                "province": p.get('tentinhmoi')}
+    return {"found": False, "reason": "không thấy tỉnh"}
+
+
 @app.get("/api/convert-coords")
 async def api_convert_coords(lat: float, lng: float):
     """Chuyển tọa độ → địa chỉ mới. PIP vào ranh giới phường CŨ (GADM, local)
