@@ -1609,18 +1609,41 @@ def _resolve_offline(text, province_hint=None):
 
 
 GOONG_API_KEY = os.environ.get("GOONG_API_KEY", "")
+VIETMAP_API_KEY = os.environ.get("VIETMAP_API_KEY", "")
 
 # Độ chính xác của lần geocode gần nhất: True = tới SỐ NHÀ (đủ tin để phủ quyết
 # phường user ghi), False = chỉ tới tuyến đường (chỉ được gợi ý cảnh báo).
 _last_geocode_precise = False
+# Ward mà geocoder trả kèm (VietMap có sẵn phường) — dùng làm gợi ý phụ.
+_last_geocode_ward = None
 
 async def _geocode_vn(q, viewbox=None):
     """Geocode: Goong.io (data VN, số nhà hẻm chính xác) → Nominatim → Photon.
     viewbox=(lonmin,latmin,lonmax,latmax): giới hạn vùng tìm (tránh trùng tên
     đường ở thành phố khác trong cùng tỉnh mới, VD Kon Tum vs Quảng Ngãi)."""
     import httpx
-    global _last_geocode_precise
+    global _last_geocode_precise, _last_geocode_ward
     _last_geocode_precise = False
+    _last_geocode_ward = None
+    # 0) VietMap — geocoder VN, ĐỊNH VỊ ĐÚNG SỐ NHÀ (kể cả hẻm 266/10)
+    if VIETMAP_API_KEY:
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                r = await client.get('https://maps.vietmap.vn/api/search',
+                                     params={'api-version': '1.1', 'apikey': VIETMAP_API_KEY,
+                                             'text': q})
+            feats = (r.json().get('data') or {}).get('features') or []
+            for f in feats:
+                coords = f.get('geometry', {}).get('coordinates') or []
+                if len(coords) >= 2:
+                    lon, lat = float(coords[0]), float(coords[1])
+                    if not viewbox or (viewbox[0] <= lon <= viewbox[2]
+                                       and viewbox[1] <= lat <= viewbox[3]):
+                        _last_geocode_precise = True
+                        _last_geocode_ward = f.get('properties', {}).get('locality') or None
+                        return lon, lat
+        except Exception as e:
+            print(f"[geocode-vietmap] {e}", flush=True)
     # 1) Goong.io — geocoder Việt Nam, định vị được số nhà kiểu 405/15
     if GOONG_API_KEY:
         try:
