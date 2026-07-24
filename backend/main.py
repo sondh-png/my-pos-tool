@@ -1636,34 +1636,54 @@ async def _geocode_vn(q, viewbox=None, prov_core=None):
             # số nhà đầu chuỗi truy vấn (vd "30", "266/10", "405/15", "K154")
             m_lead = re.match(r'\s*([0-9]+(?:[/\-][0-9a-zA-Z]+)*)', q)
             lead = (m_lead.group(1).lower() if m_lead else '')
-            for f in feats:
-                coords = f.get('geometry', {}).get('coordinates') or []
-                if len(coords) >= 2:
+            pal = _load_resolver().get('province_aliases', {})
+
+            def _ok_prov(f):
+                # lọc theo TỈNH: tránh VietMap khớp mờ số nhà+đường ở tỉnh khác
+                # (vd "87 Nguyễn Sinh Sắc, Gia Lai" nó trả TP Vinh, Nghệ An).
+                # VietMap dùng tên tỉnh CŨ → chuẩn hóa qua province_aliases
+                # (Bình Định→Gia Lai) rồi mới so với tỉnh mới đã nhập.
+                if not prov_core:
+                    return True
+                rg = _n(f.get('properties', {}).get('region', ''))
+                rg = rg.replace('tinh ', '').replace('thanh pho ', '').strip()
+                rg_new = pal.get(rg, rg)
+                return (not rg) or (prov_core in rg_new or rg_new in prov_core
+                                    or prov_core in rg or rg in prov_core)
+
+            def _ok_vb(lon, lat):
+                return (not viewbox or (viewbox[0] <= lon <= viewbox[2]
+                                        and viewbox[1] <= lat <= viewbox[3]))
+
+            def _is_house(f):
+                prop = f.get('properties', {})
+                hn = (prop.get('housenumber') or '').lower().strip()
+                nm = (prop.get('name') or '').lower()
+                return bool(lead) and (hn == lead or nm.startswith(lead + ' ') or nm == lead)
+
+            # Ưu tiên feature ĐÚNG SỐ NHÀ (vd nhà 87 ở Bình Định) hơn feature
+            # khớp mờ tuyến đường cùng tỉnh (VietMap xếp hạng đôi khi lộn) —
+            # rồi mới tới feature bất kỳ hợp tỉnh+viewbox.
+            pick = None
+            for want_house in (True, False):
+                for f in feats:
+                    coords = f.get('geometry', {}).get('coordinates') or []
+                    if len(coords) < 2:
+                        continue
                     lon, lat = float(coords[0]), float(coords[1])
-                    # lọc theo TỈNH: tránh VietMap khớp mờ số nhà+đường ở tỉnh khác
-                    # (vd "87 Nguyễn Sinh Sắc, Gia Lai" nó trả TP Vinh, Nghệ An).
-                    # VietMap dùng tên tỉnh CŨ → chuẩn hóa qua province_aliases
-                    # (Bình Định→Gia Lai) rồi mới so với tỉnh mới đã nhập.
-                    if prov_core:
-                        rg = _n(f.get('properties', {}).get('region', ''))
-                        rg = rg.replace('tinh ', '').replace('thanh pho ', '').strip()
-                        pal = _load_resolver().get('province_aliases', {})
-                        rg_new = pal.get(rg, rg)
-                        if rg and not (prov_core in rg_new or rg_new in prov_core
-                                       or prov_core in rg or rg in prov_core):
-                            continue
-                    if not viewbox or (viewbox[0] <= lon <= viewbox[2]
-                                       and viewbox[1] <= lat <= viewbox[3]):
-                        prop = f.get('properties', {})
-                        hn = (prop.get('housenumber') or '').lower().strip()
-                        nm = (prop.get('name') or '').lower()
-                        # Chỉ coi là ĐÚNG SỐ NHÀ (đủ tin phủ quyết phường user) khi
-                        # VietMap khớp đúng số nhà đã nhập — tránh nó khớp mờ số khác
-                        # (vd hỏi "30" nó trả "38") rồi ghi đè phường user ghi đúng.
-                        _last_geocode_precise = bool(lead) and (
-                            hn == lead or nm.startswith(lead + ' ') or nm == lead)
-                        _last_geocode_ward = prop.get('locality') or None
-                        return lon, lat
+                    if not _ok_prov(f) or not _ok_vb(lon, lat):
+                        continue
+                    if want_house and not _is_house(f):
+                        continue
+                    pick = (f, lon, lat)
+                    break
+                if pick:
+                    break
+            if pick:
+                f, lon, lat = pick
+                _last_geocode_precise = _is_house(f)
+                _last_geocode_ward = f.get('properties', {}).get('locality') or None
+                return lon, lat
         except Exception as e:
             print(f"[geocode-vietmap] {e}", flush=True)
     # 1) Goong.io — geocoder Việt Nam, định vị được số nhà kiểu 405/15
@@ -2131,14 +2151,10 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
                     if not it['confident'] and 2 <= len(it['candidates']) <= 6]
         if need_geo:
             pt = None
-            _dbgq = _build_geo_queries(q, res.get('province', ''))
-            for q_geo in _dbgq:
+            for q_geo in _build_geo_queries(q, res.get('province', '')):
                 pt = await _geocode_vn(q_geo, prov_core=res.get('province_core'))
                 if pt:
                     break
-            if _re.search(r'\bdebug=?1?\b', q or '') or True:
-                res['_dbg'] = {'queries': _dbgq, 'pt': pt,
-                               'precise': _last_geocode_precise, 'gward': _last_geocode_ward}
             if pt:
                 lon, lat = pt
                 wm = _load_resolver().get('ward_malk', {}).get(res['province_core'], {})
