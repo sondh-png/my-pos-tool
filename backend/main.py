@@ -1641,10 +1641,16 @@ async def _geocode_vn(q, viewbox=None, prov_core=None):
                 if len(coords) >= 2:
                     lon, lat = float(coords[0]), float(coords[1])
                     # lọc theo TỈNH: tránh VietMap khớp mờ số nhà+đường ở tỉnh khác
-                    # (vd "87 Nguyễn Sinh Sắc, Gia Lai" nó trả TP Vinh, Nghệ An)
+                    # (vd "87 Nguyễn Sinh Sắc, Gia Lai" nó trả TP Vinh, Nghệ An).
+                    # VietMap dùng tên tỉnh CŨ → chuẩn hóa qua province_aliases
+                    # (Bình Định→Gia Lai) rồi mới so với tỉnh mới đã nhập.
                     if prov_core:
                         rg = _n(f.get('properties', {}).get('region', ''))
-                        if rg and not (prov_core in rg or rg in prov_core):
+                        rg = rg.replace('tinh ', '').replace('thanh pho ', '').strip()
+                        pal = _load_resolver().get('province_aliases', {})
+                        rg_new = pal.get(rg, rg)
+                        if rg and not (prov_core in rg_new or rg_new in prov_core
+                                       or prov_core in rg or rg in prov_core):
                             continue
                     if not viewbox or (viewbox[0] <= lon <= viewbox[2]
                                        and viewbox[1] <= lat <= viewbox[3]):
