@@ -2163,10 +2163,11 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
                         )
                         if wrote_old_as_current and correct_n not in tn_nopar:
                             item['stated_wrong'] = old_disp
-                    elif not hits:
-                        # Điểm không thuộc ứng viên nào — 'phường cũ' trích được
-                        # có thể thật ra là tên QUẬN (vd 'Tân Phú'). Tra thẳng
-                        # ranh giới phường CŨ (local) → suy phường mới đúng.
+                    else:
+                        # hits=0 (điểm ngoài mọi ứng viên — 'phường cũ' trích được
+                        # có thể là tên QUẬN, vd 'Tân Phú') HOẶC hits>=2 (thị xã tách
+                        # nhiều, biên chồng — vd An Nhơn). Cả hai: tra thẳng ranh giới
+                        # phường CŨ (local) tại điểm → suy phường mới đúng.
                         pc_g = res['province_core']
                         actual = next((e for e in _load_old_bounds(pc_g)
                                        if _pip_geom(lon, lat, e['g'])), None)
