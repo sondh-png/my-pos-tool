@@ -2324,17 +2324,12 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
                 act_name, act_dist = apip['name'], apip.get('dist', '')
             elif _last_geocode_precise and _last_geocode_ward:
                 act_name, act_dist = _last_geocode_ward, stated_entry.get('dist', '')
-            res['_dbg'] = {'pt': pt, 'precise': _last_geocode_precise,
-                           'gward': _last_geocode_ward, 'apip': apip['name'] if apip else None,
-                           'act_name': act_name, 'act_dist': act_dist, 'old_disp': old_disp}
             if not act_name:
                 continue
             if _ward_core(act_name) == _ward_core(old_disp):
-                res['_dbg']['skip'] = 'ward==old'
                 continue  # phường thực == phường user ghi → user đúng
             derived = _derive_new_from_old(
                 pc2, _ward_core(act_name), _n(act_dist))
-            res['_dbg']['derived'] = derived['new'] if derived else None
             if derived and _n(derived['new']) != _n(item['candidates'][0]['new']):
                 if _last_geocode_precise:
                     # Geocode tới SỐ NHÀ → đủ tin để phủ quyết phường user ghi
