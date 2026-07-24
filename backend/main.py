@@ -1617,6 +1617,29 @@ _last_geocode_precise = False
 # Ward mà geocoder trả kèm (VietMap có sẵn phường) — dùng làm gợi ý phụ.
 _last_geocode_ward = None
 
+_prov_center_cache: dict = {}
+
+def _province_center(prov_core):
+    """Tâm (lon,lat) của tỉnh MỚI, tính từ bbox old_bounds — cache. Dùng làm
+    focus point cho VietMap để nó xếp hạng feature đúng tỉnh lên đầu bất kể
+    IP server (VietMap rank theo IP → Vercel nhận feature khác máy local)."""
+    if prov_core in _prov_center_cache:
+        return _prov_center_cache[prov_core]
+    center = None
+    lons, lats = [], []
+    for e in _load_old_bounds(prov_core):
+        g = e.get('g', {})
+        polys = [g.get('coordinates', [])] if g.get('type') == 'Polygon' else g.get('coordinates', [])
+        for poly in polys:
+            for ring in poly[:1]:
+                for pt in ring[::20]:  # thưa cho nhanh
+                    lons.append(pt[0]); lats.append(pt[1])
+    if lons:
+        center = ((min(lons) + max(lons)) / 2, (min(lats) + max(lats)) / 2)
+    _prov_center_cache[prov_core] = center
+    return center
+
+
 async def _geocode_vn(q, viewbox=None, prov_core=None):
     """Geocode: Goong.io (data VN, số nhà hẻm chính xác) → Nominatim → Photon.
     viewbox=(lonmin,latmin,lonmax,latmax): giới hạn vùng tìm (tránh trùng tên
@@ -1628,10 +1651,20 @@ async def _geocode_vn(q, viewbox=None, prov_core=None):
     # 0) VietMap — geocoder VN, ĐỊNH VỊ ĐÚNG SỐ NHÀ (kể cả hẻm 266/10)
     if VIETMAP_API_KEY:
         try:
+            _params = {'api-version': '1.1', 'apikey': VIETMAP_API_KEY, 'text': q}
+            # focus point: tâm viewbox nếu có, không thì tâm tỉnh → ép VietMap
+            # ưu tiên feature đúng vùng (khắc phục rank theo IP trên Vercel).
+            _focus = None
+            if viewbox:
+                _focus = ((viewbox[0] + viewbox[2]) / 2, (viewbox[1] + viewbox[3]) / 2)
+            elif prov_core:
+                _focus = _province_center(prov_core)
+            if _focus:
+                _params['focus.point.lon'] = _focus[0]
+                _params['focus.point.lat'] = _focus[1]
             async with httpx.AsyncClient(timeout=10) as client:
                 r = await client.get('https://maps.vietmap.vn/api/search',
-                                     params={'api-version': '1.1', 'apikey': VIETMAP_API_KEY,
-                                             'text': q})
+                                     params=_params)
             feats = (r.json().get('data') or {}).get('features') or []
             # số nhà đầu chuỗi truy vấn (vd "30", "266/10", "405/15", "K154")
             m_lead = re.match(r'\s*([0-9]+(?:[/\-][0-9a-zA-Z]+)*)', q)
@@ -2191,9 +2224,6 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
                         pc_g = res['province_core']
                         actual = next((e for e in _load_old_bounds(pc_g)
                                        if _pip_geom(lon, lat, e['g'])), None)
-                        res['_dbg'] = {'pt': [lon, lat], 'precise': _last_geocode_precise,
-                                       'nhits': len(hits),
-                                       'actual': actual['name'] if actual else None}
                         if actual:
                             derived = _derive_new_from_old(
                                 pc_g, _ward_core(actual['name']), _n(actual.get('dist', '')))
