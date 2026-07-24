@@ -2206,6 +2206,8 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
                                        prov_core=res.get('province_core'))
                 if pt:
                     break
+            res['_dbg'] = {'vb': vb_need, 'pt': pt, 'precise': _last_geocode_precise,
+                           'gward': _last_geocode_ward}
             if pt:
                 lon, lat = pt
                 wm = _load_resolver().get('ward_malk', {}).get(res['province_core'], {})
