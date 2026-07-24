@@ -1617,7 +1617,7 @@ _last_geocode_precise = False
 # Ward mà geocoder trả kèm (VietMap có sẵn phường) — dùng làm gợi ý phụ.
 _last_geocode_ward = None
 
-async def _geocode_vn(q, viewbox=None):
+async def _geocode_vn(q, viewbox=None, prov_core=None):
     """Geocode: Goong.io (data VN, số nhà hẻm chính xác) → Nominatim → Photon.
     viewbox=(lonmin,latmin,lonmax,latmax): giới hạn vùng tìm (tránh trùng tên
     đường ở thành phố khác trong cùng tỉnh mới, VD Kon Tum vs Quảng Ngãi)."""
@@ -1640,6 +1640,12 @@ async def _geocode_vn(q, viewbox=None):
                 coords = f.get('geometry', {}).get('coordinates') or []
                 if len(coords) >= 2:
                     lon, lat = float(coords[0]), float(coords[1])
+                    # lọc theo TỈNH: tránh VietMap khớp mờ số nhà+đường ở tỉnh khác
+                    # (vd "87 Nguyễn Sinh Sắc, Gia Lai" nó trả TP Vinh, Nghệ An)
+                    if prov_core:
+                        rg = _n(f.get('properties', {}).get('region', ''))
+                        if rg and not (prov_core in rg or rg in prov_core):
+                            continue
                     if not viewbox or (viewbox[0] <= lon <= viewbox[2]
                                        and viewbox[1] <= lat <= viewbox[3]):
                         prop = f.get('properties', {})
@@ -2038,9 +2044,9 @@ async def api_address_reverse(q: str, province: Optional[str] = None, live: bool
             pt = None
             for q_geo in _build_geo_queries(q, res.get('province', '')):
                 if viewbox:
-                    pt = await _geocode_vn(q_geo, viewbox=viewbox)
+                    pt = await _geocode_vn(q_geo, viewbox=viewbox, prov_core=res.get('province_core'))
                 if not pt:
-                    pt = await _geocode_vn(q_geo)
+                    pt = await _geocode_vn(q_geo, prov_core=res.get('province_core'))
                     # điểm phải nằm gần vùng phường đã ghi, không thì bỏ (geocode lạc)
                     if pt and viewbox:
                         big = (viewbox[0] - 0.35, viewbox[1] - 0.35,
@@ -2120,7 +2126,7 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
         if need_geo:
             pt = None
             for q_geo in _build_geo_queries(q, res.get('province', '')):
-                pt = await _geocode_vn(q_geo)
+                pt = await _geocode_vn(q_geo, prov_core=res.get('province_core'))
                 if pt:
                     break
             if pt:
@@ -2200,7 +2206,7 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
                              else stated_entry['g']['coordinates'], pad=0.12)
             pt = None
             for q_geo in _build_geo_queries(q, res.get('province', '')):
-                pt = await _geocode_vn(q_geo, viewbox=vb)
+                pt = await _geocode_vn(q_geo, viewbox=vb, prov_core=res.get('province_core'))
                 if pt:
                     break
             if not pt:
@@ -2252,9 +2258,9 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
                         break
             pt = None
             for q_geo in _build_geo_queries(q, res.get('province', '')):
-                pt = await _geocode_vn(q_geo, viewbox=vb3) if vb3 else None
+                pt = await _geocode_vn(q_geo, viewbox=vb3, prov_core=res.get('province_core')) if vb3 else None
                 if not pt and not vb3:
-                    pt = await _geocode_vn(q_geo)
+                    pt = await _geocode_vn(q_geo, prov_core=res.get('province_core'))
                 if pt:
                     break
             if pt:
