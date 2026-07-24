@@ -2283,9 +2283,28 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
                         break
             if not stated_entry:
                 continue
-            vb = _polys_bbox([stated_entry['g']['coordinates']]
-                             if stated_entry['g']['type'] == 'Polygon'
-                             else stated_entry['g']['coordinates'], pad=0.12)
+            # Neo viewbox theo CẢ QUẬN (mọi phường cũ cùng dist), KHÔNG chỉ phường
+            # user ghi — vì phường đó có thể SAI (đang đi verify). Neo hẹp vào 1
+            # phường sai sẽ loại mất điểm đúng ở phường khác trong quận.
+            # (VD "374 XVNT, Phường 13" → điểm đúng ở Phường 25 bị loại nếu neo P13)
+            _distk = _ns2(stated_entry.get('dist', ''))
+            _lo, _la = [], []
+            if _distk:
+                for e in bounds:
+                    if _ns2(e.get('dist', '')) == _distk:
+                        g = e['g']
+                        polys = ([g['coordinates']] if g['type'] == 'Polygon'
+                                 else g['coordinates'])
+                        for poly in polys:
+                            for ring in poly[:1]:
+                                for p in ring[::10]:
+                                    _lo.append(p[0]); _la.append(p[1])
+            if _lo:
+                vb = (min(_lo) - 0.05, min(_la) - 0.05, max(_lo) + 0.05, max(_la) + 0.05)
+            else:
+                vb = _polys_bbox([stated_entry['g']['coordinates']]
+                                 if stated_entry['g']['type'] == 'Polygon'
+                                 else stated_entry['g']['coordinates'], pad=0.12)
             pt = None
             for q_geo in _build_geo_queries(q, res.get('province', '')):
                 pt = await _geocode_vn(q_geo, viewbox=vb, prov_core=res.get('province_core'))
