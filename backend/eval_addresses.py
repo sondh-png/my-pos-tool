@@ -45,8 +45,10 @@ CASES = [
     ("7/28 thành thái, Phường 14, quận 10, hcm",             "Phường Diên Hồng",  "geo chọn giữa 2 ứng viên tách đôi"),
     # Ghi phường MỚI/SAI + có tên đường → geo từ đường xác định đúng
     ("298 Nguyễn Văn Linh, Xã Đông Sơn, Quảng Ngãi",         "Phường Trương Quang Trọng", "ghi ward mới sai→geo đường"),
-    # Thị xã An Nhơn tách nhiều phường + OSM thiếu đường → ambiguous, KHÔNG đoán bừa
-    ("87 Nguyễn Sinh Sắc, Phường An Nhơn, Gia Lai",          None,                "thị xã An Nhơn tách nhiều→ambiguous"),
+    # Thị xã An Nhơn: VietMap định vị số nhà → geo → Phường Bình Định (đúng)
+    ("87 Nguyễn Sinh Sắc, Phường An Nhơn, Gia Lai",          "Phường Bình Định",  "VietMap số nhà→geo→Bình Định"),
+    # Ghi sai phường Sơn Kỳ, đường Lê Trọng Tấn → VietMap → đúng Tây Thạnh
+    ("266/10 Lê Trọng Tấn, phường sơn kỳ, quận tân phú, HCM", "Phường Tây Thạnh", "VietMap house-precise, ghi sai Sơn Kỳ"),
 ]
 
 # reverse: (địa_chỉ, resolved_old kỳ vọng chứa, ghi chú)

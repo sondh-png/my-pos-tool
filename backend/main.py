@@ -1883,7 +1883,15 @@ def _derive_new_from_old(pc, wc, dist_norm):
     không có → nối chuỗi phase-1 (phường biến mất đợt trước, vd P10 Q8→Hưng Phú)."""
     resolver = _load_resolver().get('resolver', {})
     bucket = resolver.get(pc, {})
-    for c in bucket.get(wc, []):
+    cands = bucket.get(wc, [])
+    # Khi biết quận (từ geo) → ưu tiên khớp quận THẬT trước; entry quận rỗng chỉ
+    # là fallback (tránh "Phường 6" rỗng của Cao Lãnh nuốt "Phường 6" Mỹ Tho).
+    if dist_norm:
+        for c in cands:
+            cd = _n(c.get('dist', ''))
+            if cd and (dist_norm in cd or cd in dist_norm):
+                return c
+    for c in cands:
         cd = _n(c.get('dist', ''))
         if not dist_norm or not cd or dist_norm in cd or cd in dist_norm:
             return c
