@@ -1633,14 +1633,24 @@ async def _geocode_vn(q, viewbox=None):
                                      params={'api-version': '1.1', 'apikey': VIETMAP_API_KEY,
                                              'text': q})
             feats = (r.json().get('data') or {}).get('features') or []
+            # số nhà đầu chuỗi truy vấn (vd "30", "266/10", "405/15", "K154")
+            m_lead = re.match(r'\s*([0-9]+(?:[/\-][0-9a-zA-Z]+)*)', q)
+            lead = (m_lead.group(1).lower() if m_lead else '')
             for f in feats:
                 coords = f.get('geometry', {}).get('coordinates') or []
                 if len(coords) >= 2:
                     lon, lat = float(coords[0]), float(coords[1])
                     if not viewbox or (viewbox[0] <= lon <= viewbox[2]
                                        and viewbox[1] <= lat <= viewbox[3]):
-                        _last_geocode_precise = True
-                        _last_geocode_ward = f.get('properties', {}).get('locality') or None
+                        prop = f.get('properties', {})
+                        hn = (prop.get('housenumber') or '').lower().strip()
+                        nm = (prop.get('name') or '').lower()
+                        # Chỉ coi là ĐÚNG SỐ NHÀ (đủ tin phủ quyết phường user) khi
+                        # VietMap khớp đúng số nhà đã nhập — tránh nó khớp mờ số khác
+                        # (vd hỏi "30" nó trả "38") rồi ghi đè phường user ghi đúng.
+                        _last_geocode_precise = bool(lead) and (
+                            hn == lead or nm.startswith(lead + ' ') or nm == lead)
+                        _last_geocode_ward = prop.get('locality') or None
                         return lon, lat
         except Exception as e:
             print(f"[geocode-vietmap] {e}", flush=True)
