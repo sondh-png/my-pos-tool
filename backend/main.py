@@ -2264,8 +2264,12 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
                         break
             pt = None
             for q_geo in _build_geo_queries(q, res.get('province', '')):
-                pt = await _geocode_vn(q_geo, viewbox=vb3, prov_core=res.get('province_core')) if vb3 else None
-                if not pt and not vb3:
+                if vb3:
+                    pt = await _geocode_vn(q_geo, viewbox=vb3, prov_core=res.get('province_core'))
+                # vb3 chỉ neo 1 phường-con của thị xã tách nhiều (vd An Nhơn) →
+                # số nhà có thể nằm phường-con khác, ngoài vb3. prov_core đã chặn
+                # nhầm tỉnh nên thử lại KHÔNG viewbox, PIP old_bounds sẽ chọn đúng.
+                if not pt:
                     pt = await _geocode_vn(q_geo, prov_core=res.get('province_core'))
                 if pt:
                     break
