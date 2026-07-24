@@ -1616,6 +1616,7 @@ VIETMAP_API_KEY = os.environ.get("VIETMAP_API_KEY", "")
 _last_geocode_precise = False
 # Ward mà geocoder trả kèm (VietMap có sẵn phường) — dùng làm gợi ý phụ.
 _last_geocode_ward = None
+_dbg_feats = None
 
 _prov_center_cache: dict = {}
 
@@ -1666,6 +1667,10 @@ async def _geocode_vn(q, viewbox=None, prov_core=None):
                 r = await client.get('https://maps.vietmap.vn/api/search',
                                      params=_params)
             feats = (r.json().get('data') or {}).get('features') or []
+            global _dbg_feats
+            _dbg_feats = [(f['geometry']['coordinates'],
+                           f.get('properties', {}).get('region'),
+                           f.get('properties', {}).get('name')) for f in feats[:6]]
             # số nhà đầu chuỗi truy vấn (vd "30", "266/10", "405/15", "K154")
             m_lead = re.match(r'\s*([0-9]+(?:[/\-][0-9a-zA-Z]+)*)', q)
             lead = (m_lead.group(1).lower() if m_lead else '')
@@ -2211,7 +2216,7 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
                 if pt:
                     break
             res['_dbg'] = {'vb': vb_need, 'pt': pt, 'precise': _last_geocode_precise,
-                           'gward': _last_geocode_ward}
+                           'gward': _last_geocode_ward, 'feats': _dbg_feats}
             if pt:
                 lon, lat = pt
                 wm = _load_resolver().get('ward_malk', {}).get(res['province_core'], {})
