@@ -2191,6 +2191,9 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
                         pc_g = res['province_core']
                         actual = next((e for e in _load_old_bounds(pc_g)
                                        if _pip_geom(lon, lat, e['g'])), None)
+                        res['_dbg'] = {'pt': [lon, lat], 'precise': _last_geocode_precise,
+                                       'nhits': len(hits),
+                                       'actual': actual['name'] if actual else None}
                         if actual:
                             derived = _derive_new_from_old(
                                 pc_g, _ward_core(actual['name']), _n(actual.get('dist', '')))
