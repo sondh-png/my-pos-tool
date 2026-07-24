@@ -49,6 +49,9 @@ CASES = [
     ("87 Nguyễn Sinh Sắc, Phường An Nhơn, Gia Lai",          "Phường Bình Định",  "VietMap số nhà→geo→Bình Định"),
     # Ghi sai phường Sơn Kỳ, đường Lê Trọng Tấn → VietMap → đúng Tây Thạnh
     ("266/10 Lê Trọng Tấn, phường sơn kỳ, quận tân phú, HCM", "Phường Tây Thạnh", "VietMap house-precise, ghi sai Sơn Kỳ"),
+    # Ghi sai Phường 13, số nhà 374 XVNT thực ở Phường 25 (PIP GADM hụt mép sông
+    # → dùng VietMap locality) → Thạnh Mỹ Tây, KHÔNG bịa Gia Định
+    ("374 Xô Viết Nghệ Tĩnh, Phường 13, Bình Thạnh, hcm", "Phường Thạnh Mỹ Tây", "ghi sai P13, VietMap locality P25"),
 ]
 
 # reverse: (địa_chỉ, resolved_old kỳ vọng chứa, ghi chú)
