@@ -2310,13 +2310,16 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
                 pt = await _geocode_vn(q_geo, viewbox=vb, prov_core=res.get('province_core'))
                 if pt:
                     break
+            res['_dbg'] = {'vb': vb, 'pt': pt, 'precise': _last_geocode_precise}
             if not pt:
                 continue
             lon, lat = pt
+            res['_dbg']['in_stated'] = _pip_geom(lon, lat, stated_entry['g'])
             if _pip_geom(lon, lat, stated_entry['g']):
                 continue  # đường đúng là nằm trong phường cũ đã ghi → OK
             # đường nằm phường cũ KHÁC → tìm phường cũ thực + suy phường mới đúng
             actual = next((e for e in bounds if _pip_geom(lon, lat, e['g'])), None)
+            res['_dbg']['actual'] = actual['name'] if actual else None
             if not actual:
                 continue
             derived = _derive_new_from_old(
