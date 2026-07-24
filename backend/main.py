@@ -2310,33 +2310,39 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
                 pt = await _geocode_vn(q_geo, viewbox=vb, prov_core=res.get('province_core'))
                 if pt:
                     break
-            res['_dbg'] = {'vb': vb, 'pt': pt, 'precise': _last_geocode_precise}
             if not pt:
                 continue
             lon, lat = pt
-            res['_dbg']['in_stated'] = _pip_geom(lon, lat, stated_entry['g'])
             if _pip_geom(lon, lat, stated_entry['g']):
                 continue  # đường đúng là nằm trong phường cũ đã ghi → OK
-            # đường nằm phường cũ KHÁC → tìm phường cũ thực + suy phường mới đúng
-            actual = next((e for e in bounds if _pip_geom(lon, lat, e['g'])), None)
-            res['_dbg']['actual'] = actual['name'] if actual else None
-            if not actual:
+            # Xác định phường CŨ THỰC tại điểm: ưu tiên VietMap locality (data
+            # trước 2025 = phường cũ) khi geocode tới số nhà — vì ranh giới GADM
+            # đôi khi hụt (mép sông Thanh Đa) làm PIP trả rỗng; PIP làm phụ + lấy quận.
+            apip = next((e for e in bounds if _pip_geom(lon, lat, e['g'])), None)
+            act_name = act_dist = None
+            if apip:
+                act_name, act_dist = apip['name'], apip.get('dist', '')
+            elif _last_geocode_precise and _last_geocode_ward:
+                act_name, act_dist = _last_geocode_ward, stated_entry.get('dist', '')
+            if not act_name:
                 continue
+            if _ward_core(act_name) == _ward_core(old_disp):
+                continue  # phường thực == phường user ghi → user đúng
             derived = _derive_new_from_old(
-                pc2, _ward_core(actual['name']), _n(actual.get('dist', '')))
+                pc2, _ward_core(act_name), _n(act_dist))
             if derived and _n(derived['new']) != _n(item['candidates'][0]['new']):
                 if _last_geocode_precise:
-                    # Geocode tới SỐ NHÀ (Goong) → đủ tin để phủ quyết phường user ghi
+                    # Geocode tới SỐ NHÀ → đủ tin để phủ quyết phường user ghi
                     item['stated_wrong'] = old_disp
                     item['candidates'] = [{'new': derived['new'], 'dist': derived.get('dist', ''),
-                                           'prov': pc2, 'old_disp': actual['name']}]
+                                           'prov': pc2, 'old_disp': act_name}]
                     item['correct_ward'] = derived['new']
                     item['geo'] = True
-                    item['geo_actual_old'] = {'name': actual['name'], 'dist': actual['dist']}
+                    item['geo_actual_old'] = {'name': act_name, 'dist': act_dist}
                 else:
                     # Chỉ tới TUYẾN ĐƯỜNG (OSM) → không phủ quyết, chỉ GỢI Ý cảnh báo
                     item['geo_hint'] = {'new': derived['new'],
-                                        'old': actual['name'], 'dist': actual['dist']}
+                                        'old': act_name, 'dist': act_dist}
             break  # chỉ verify 1 item chính, tránh spam geocode
 
     # FORWARD GEO FALLBACK: nhập phường MỚI/sai + có TÊN ĐƯỜNG mà tra tên không
