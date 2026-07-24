@@ -2183,9 +2183,27 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
         need_geo = [it for it in res['results']
                     if not it['confident'] and 2 <= len(it['candidates']) <= 6]
         if need_geo:
+            # Neo vùng tìm vào bbox các phường CŨ cùng thị xã/quận đã ghi
+            # (vd 'An Nhơn' → gom mọi ward old dist='An Nhơn') → focus VietMap
+            # đúng khu, tránh nó trả tuyến đường trùng tên tỉnh khác.
+            vb_need = None
+            _oldn = _n(need_geo[0]['old'])
+            _lo, _la = [], []
+            for e in _load_old_bounds(res['province_core']):
+                if _oldn and (_oldn in _n(e.get('dist', '')) or _oldn in _n(e.get('name', ''))):
+                    g = e.get('g', {})
+                    polys = ([g.get('coordinates', [])] if g.get('type') == 'Polygon'
+                             else g.get('coordinates', []))
+                    for poly in polys:
+                        for ring in poly[:1]:
+                            for p in ring[::10]:
+                                _lo.append(p[0]); _la.append(p[1])
+            if _lo:
+                vb_need = (min(_lo) - 0.1, min(_la) - 0.1, max(_lo) + 0.1, max(_la) + 0.1)
             pt = None
             for q_geo in _build_geo_queries(q, res.get('province', '')):
-                pt = await _geocode_vn(q_geo, prov_core=res.get('province_core'))
+                pt = await _geocode_vn(q_geo, viewbox=vb_need,
+                                       prov_core=res.get('province_core'))
                 if pt:
                     break
             if pt:
