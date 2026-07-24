@@ -2190,7 +2190,11 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
             _oldn = _n(need_geo[0]['old'])
             _lo, _la = [], []
             for e in _load_old_bounds(res['province_core']):
-                if _oldn and (_oldn in _n(e.get('dist', '')) or _oldn in _n(e.get('name', ''))):
+                ed, en = _n(e.get('dist', '')), _n(e.get('name', ''))
+                # khớp CHẶT: đúng quận/thị xã cũ (ed==_oldn) hoặc đúng tên phường cũ
+                # (en==... / ward-core trùng) — tránh gom ward khác trùng chữ.
+                if _oldn and (ed == _oldn or en == _oldn
+                              or _ward_core(e.get('name', '')) == _oldn):
                     g = e.get('g', {})
                     polys = ([g.get('coordinates', [])] if g.get('type') == 'Polygon'
                              else g.get('coordinates', []))
@@ -2199,7 +2203,7 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
                             for p in ring[::10]:
                                 _lo.append(p[0]); _la.append(p[1])
             if _lo:
-                vb_need = (min(_lo) - 0.1, min(_la) - 0.1, max(_lo) + 0.1, max(_la) + 0.1)
+                vb_need = (min(_lo) - 0.05, min(_la) - 0.05, max(_lo) + 0.05, max(_la) + 0.05)
             pt = None
             for q_geo in _build_geo_queries(q, res.get('province', '')):
                 pt = await _geocode_vn(q_geo, viewbox=vb_need,
