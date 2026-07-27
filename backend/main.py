@@ -1363,11 +1363,20 @@ _QUERY_PHRASES = [
     'giờ là', 'bây giờ là', 'hiện tại là', 'đổi thành', 'chuyển thành',
 ]
 
+def _expand_abbr(s):
+    """Mở rộng viết tắt QUẬN số: q8 / q.8 / q 8 / q08 → 'quan 8' (để lọc quận đúng,
+    tránh Phường số bị mập mờ khắp HCM). Chạy TRƯỚC khi đổi '.'→',' (khỏi vỡ 'q.8')."""
+    import re as _r
+    return _r.sub(r'(?<![a-zA-Z0-9])[qQ]\.?\s*0*(\d{1,2})(?![0-9])',
+                  lambda m: 'quan ' + m.group(1), s)
+
+
 def _clean_query(q):
     """Bỏ cụm hỏi ý định ('phường mới là gì'...) + coi . ; : như dấu phẩy
     (ngăn cách phần địa chỉ) để không lẫn vào tên phường / hỏng detect tỉnh."""
     import re as _r
     s = q or ''
+    s = _expand_abbr(s)
     s = _r.sub(r'[.;:]+', ',', s)
     for ph in _QUERY_PHRASES:
         s = _r.sub(_r.escape(ph), ' ', s, flags=_r.IGNORECASE)
