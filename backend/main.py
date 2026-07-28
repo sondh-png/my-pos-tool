@@ -1375,7 +1375,10 @@ def _clean_query(q):
     """Bỏ cụm hỏi ý định ('phường mới là gì'...) + coi . ; : như dấu phẩy
     (ngăn cách phần địa chỉ) để không lẫn vào tên phường / hỏng detect tỉnh."""
     import re as _r
-    s = q or ''
+    import unicodedata as _u
+    # Chuẩn hóa NFC: input NFD (một số client/OS gửi "phường" dạng tổ hợp) sẽ KHÔNG
+    # khớp literal 'phường' trong regex → mất phường cũ. NFC hóa để mọi client đều đúng.
+    s = _u.normalize('NFC', q or '')
     s = _expand_abbr(s)
     s = _r.sub(r'[.;:]+', ',', s)
     for ph in _QUERY_PHRASES:
