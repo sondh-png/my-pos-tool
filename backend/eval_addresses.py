@@ -104,6 +104,20 @@ def main():
         print(f"[{mark}] {got:<28} | kỳ vọng chứa '{expect_old}' | {note}")
         time.sleep(1.2)
 
+    # NFD robustness: input tổ hợp (một số client/OS) phải cho kết quả y NFC
+    print("== UNICODE NFD ==")
+    nfd = unicodedata.normalize('NFD', "45 Dương Bá Trạc, Phường 2, Quận 8, HCM")
+    try:
+        d = get("/api/address-resolve", nfd)
+        best = next((it for it in d.get("results", [])
+                     if it.get("confident") and it.get("candidates")), None)
+        got = best["candidates"][0]["new"] if best else None
+        ok = got is not None and n(got) == n("Phường Chánh Hưng")
+    except Exception as e:
+        ok, got = False, f"ERR {e}"
+    passed += ok; failed += (not ok)
+    print(f"[{'PASS' if ok else 'FAIL'}] {got or '(none)':<28} | kỳ vọng Phường Chánh Hưng | input NFD")
+
     print(f"\n== TỔNG: {passed} PASS / {failed} FAIL ==")
     sys.exit(1 if failed else 0)
 
