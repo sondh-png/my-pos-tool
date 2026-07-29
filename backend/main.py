@@ -1587,6 +1587,19 @@ def _resolve_offline(text, province_hint=None):
         # giữ nhóm khớp quận (dù còn >1) để loại các quận khác
         if dist_matched:
             cands = dist_matched
+        # Lọc theo DẤU: bucket gộp phường ĐỒNG ÂM khác dấu (Tân Quy Q7 ↔ Tân Quý
+        # Tân Phú, cùng ward-core 'tan quy', dist rỗng nên quận không lọc được).
+        # Nếu địa chỉ ghi ĐÚNG DẤU khớp 'old' của một nhóm → giữ nhóm đó.
+        if len(cands) > 1:
+            import unicodedata as _u2
+            _txt_tone = ' '.join(_u2.normalize('NFC', text.lower()).split())
+            def _old_tone(c):
+                o = _u2.normalize('NFC', (c.get('old_disp') or '').lower())
+                o = _re.sub(r'^\s*(phường|phuong|xã|xa|thị trấn|thị xã)\s+', '', o)
+                return ' '.join(o.split())
+            tone_hit = [c for c in cands if _old_tone(c) and _old_tone(c) in _txt_tone]
+            if tone_hit and len(tone_hit) < len(cands):
+                cands = tone_hit
         # nếu địa chỉ đã ghi sẵn tên phường MỚI → chọn đúng cái đó
         if len(cands) > 1:
             named = [c for c in cands if _n(c['new']) in tn]
