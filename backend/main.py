@@ -1363,6 +1363,19 @@ _QUERY_PHRASES = [
     'giờ là', 'bây giờ là', 'hiện tại là', 'đổi thành', 'chuyển thành',
 ]
 
+def _fix_admin(s):
+    """Sửa vài lỗi hiển thị tên đơn vị hành chính trong data:
+    'Thịtrấn'→'Thị trấn' (thiếu space), 'Thủ Đô Hà Nội'→'Thành phố Hà Nội'."""
+    if not s:
+        return s
+    import re as _r
+    s = _r.sub(r'Th[iị]tr[aấ]n', 'Thị trấn', s)
+    s = _r.sub(r'Th[aà]nhph[oố]', 'Thành phố', s)
+    s = _r.sub(r'Th[iị]x[aã]', 'Thị xã', s)
+    s = s.replace('Thủ Đô Hà Nội', 'Thành phố Hà Nội')
+    return s
+
+
 def _expand_abbr(s):
     """Mở rộng viết tắt hành chính để parse được phường/quận cũ:
       P./P  → Phường   Q./Q → Quận   H./H → Huyện   X./X → Xã   TT.→Thị trấn  TX.→Thị xã
@@ -2122,6 +2135,13 @@ async def api_convert_batch(req: ConvertBatchReq):
         else:
             out.append({'input': raw, 'status': 'not_found',
                         'province': res.get('province', '')})
+    for o in out:
+        if o.get('new_ward'):
+            o['new_ward'] = _fix_admin(o['new_ward'])
+        if o.get('province'):
+            o['province'] = _fix_admin(o['province'])
+        if o.get('candidates'):
+            o['candidates'] = [_fix_admin(x) for x in o['candidates']]
     return {'results': out}
 
 
@@ -2265,6 +2285,18 @@ async def api_address_reverse(q: str, province: Optional[str] = None, live: bool
                     else:
                         # geocode chỉ tới tuyến đường → gợi ý, không khẳng định SAI
                         res['geo_hint_new'] = derived
+    if res.get('province'):
+        res['province'] = _fix_admin(res['province'])
+    _ro = res.get('resolved_old')
+    if _ro and _ro.get('name'):
+        _ro['name'] = _fix_admin(_ro['name'])
+        _ro['dist'] = _fix_admin(_ro.get('dist', ''))
+    for _m in res.get('matches', []):
+        _m['new'] = _fix_admin(_m.get('new', ''))
+        if _m.get('prov'):
+            _m['prov'] = _fix_admin(_m['prov'])
+        if _m.get('old_list'):
+            _m['old_list'] = [_fix_admin(x) for x in _m['old_list']]
     return res
 
 
@@ -2544,6 +2576,12 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
         else 'no_old_ward'
     )
     res['map_link'] = 'https://sapnhap.bando.com.vn/'
+    if res.get('province'):
+        res['province'] = _fix_admin(res['province'])
+    for _it in res.get('results', []):
+        for _c in _it.get('candidates', []):
+            if _c.get('new'):
+                _c['new'] = _fix_admin(_c['new'])
     return res
 
 
