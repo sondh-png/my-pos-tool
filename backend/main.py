@@ -1640,6 +1640,9 @@ VIETMAP_API_KEY = os.environ.get("VIETMAP_API_KEY", "")
 _last_geocode_precise = False
 # Ward mà geocoder trả kèm (VietMap có sẵn phường) — dùng làm gợi ý phụ.
 _last_geocode_ward = None
+# TẤT CẢ phường VietMap gán cho địa chỉ (nhiều feature cùng số nhà ở phường khác
+# nhau) — nếu phường user ghi nằm trong đây thì user ĐÚNG, không được báo sai.
+_last_geocode_wards = []
 
 _prov_center_cache: dict = {}
 
@@ -1669,9 +1672,10 @@ async def _geocode_vn(q, viewbox=None, prov_core=None):
     viewbox=(lonmin,latmin,lonmax,latmax): giới hạn vùng tìm (tránh trùng tên
     đường ở thành phố khác trong cùng tỉnh mới, VD Kon Tum vs Quảng Ngãi)."""
     import httpx
-    global _last_geocode_precise, _last_geocode_ward
+    global _last_geocode_precise, _last_geocode_ward, _last_geocode_wards
     _last_geocode_precise = False
     _last_geocode_ward = None
+    _last_geocode_wards = []
     # 0) VietMap — geocoder VN, ĐỊNH VỊ ĐÚNG SỐ NHÀ (kể cả hẻm 266/10)
     if VIETMAP_API_KEY:
         try:
@@ -1721,6 +1725,14 @@ async def _geocode_vn(q, viewbox=None, prov_core=None):
             # Ưu tiên feature ĐÚNG SỐ NHÀ (vd nhà 87 ở Bình Định) hơn feature
             # khớp mờ tuyến đường cùng tỉnh (VietMap xếp hạng đôi khi lộn) —
             # rồi mới tới feature bất kỳ hợp tỉnh+viewbox.
+            # Gom MỌI phường VietMap gán cho địa chỉ này (feature khớp số nhà, đúng
+            # tỉnh) — để biết phường user ghi có khớp 1 phương án nào của VietMap ko.
+            _last_geocode_wards = [
+                f.get('properties', {}).get('locality')
+                for f in feats
+                if _ok_prov(f) and (not lead or _is_house(f))
+                and f.get('properties', {}).get('locality')
+            ]
             pick = None
             for want_house in (True, False):
                 for f in feats:
@@ -2415,17 +2427,30 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
             if not pt:
                 continue
             lon, lat = pt
+            # (0) Nếu VietMap có BẤT KỲ feature cùng địa chỉ khớp phường user ghi
+            #     → user ĐÚNG (địa chỉ này thực sự thuộc phường đó theo VietMap),
+            #     tuyệt đối KHÔNG báo sai. (VD "94 Lê Văn Việt, Hiệp Phú": VietMap
+            #     có feature Hiệp Phú lẫn Long Thạnh Mỹ → phải tin Hiệp Phú user ghi)
+            if any(_ward_core(w) == _ward_core(old_disp) for w in (_last_geocode_wards or [])):
+                continue
+            # (1) VietMap locality = phường CŨ mà CHÍNH VietMap gán cho điểm này
+            #     → đáng tin nhất. Nếu == phường user ghi → user ĐÚNG, KHÔNG báo sai.
+            #     (ranh giới GADM hay lệch ở mép đường nên KHÔNG dựa vào PIP để phủ nhận)
+            vm_ward = _last_geocode_ward if _last_geocode_precise else None
+            if vm_ward and _ward_core(vm_ward) == _ward_core(old_disp):
+                continue  # VietMap xác nhận đúng phường user ghi
             if _pip_geom(lon, lat, stated_entry['g']):
-                continue  # đường đúng là nằm trong phường cũ đã ghi → OK
-            # Xác định phường CŨ THỰC tại điểm: ưu tiên VietMap locality (data
-            # trước 2025 = phường cũ) khi geocode tới số nhà — vì ranh giới GADM
-            # đôi khi hụt (mép sông Thanh Đa) làm PIP trả rỗng; PIP làm phụ + lấy quận.
+                continue  # điểm nằm trong ranh giới phường user ghi → OK
+            # (2) Xác định phường CŨ THỰC: ƯU TIÊN VietMap locality; GADM PIP chỉ phụ.
             apip = next((e for e in bounds if _pip_geom(lon, lat, e['g'])), None)
             act_name = act_dist = None
-            if apip:
+            via_vietmap = False
+            if vm_ward:
+                act_name = vm_ward
+                act_dist = apip.get('dist', '') if apip else stated_entry.get('dist', '')
+                via_vietmap = True
+            elif apip:
                 act_name, act_dist = apip['name'], apip.get('dist', '')
-            elif _last_geocode_precise and _last_geocode_ward:
-                act_name, act_dist = _last_geocode_ward, stated_entry.get('dist', '')
             if not act_name:
                 continue
             if _ward_core(act_name) == _ward_core(old_disp):
@@ -2433,8 +2458,10 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
             derived = _derive_new_from_old(
                 pc2, _ward_core(act_name), _n(act_dist))
             if derived and _n(derived['new']) != _n(item['candidates'][0]['new']):
-                if _last_geocode_precise:
-                    # Geocode tới SỐ NHÀ → đủ tin để phủ quyết phường user ghi
+                # CHỈ phủ quyết (báo SAI) khi VietMap locality xác nhận phường KHÁC
+                # (đáng tin). Nếu chỉ có GADM PIP → GỢI Ý, không dám báo sai vì
+                # ranh giới GADM hay lệch → tránh báo sai địa chỉ ĐÚNG.
+                if via_vietmap:
                     item['stated_wrong'] = old_disp
                     item['candidates'] = [{'new': derived['new'], 'dist': derived.get('dist', ''),
                                            'prov': pc2, 'old_disp': act_name}]
@@ -2442,7 +2469,6 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
                     item['geo'] = True
                     item['geo_actual_old'] = {'name': act_name, 'dist': act_dist}
                 else:
-                    # Chỉ tới TUYẾN ĐƯỜNG (OSM) → không phủ quyết, chỉ GỢI Ý cảnh báo
                     item['geo_hint'] = {'new': derived['new'],
                                         'old': act_name, 'dist': act_dist}
             break  # chỉ verify 1 item chính, tránh spam geocode
