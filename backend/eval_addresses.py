@@ -25,6 +25,9 @@ CASES = [
     ("4/13a chánh hưng, p4, q8, hcm",                        "Phường Chánh Hưng", "viết tắt q8 → quan 8, khỏi mập mờ"),
     ("104A Lê Trọng Tấn, P.Tây Thạnh, Q.Tân Phú, TP.HCM",    "Phường Tây Thạnh",  "viết tắt P./Q. + tên (payload POS)"),
     ("441 Quốc Lộ 50, Xã Bình Hưng, H.Bình Chánh, TP.HCM",   "Xã Bình Hưng",      "viết tắt H. huyện"),
+    # Hiệp Phú ĐÚNG → Tăng Nhơn Phú. Đường Lê Văn Việt sát ranh giới GADM lệch,
+    # nhưng VietMap có feature Hiệp Phú → KHÔNG được báo sai (bug cũ: ra Long Bình).
+    ("94 Lê Văn Việt, P.Hiệp Phú, Thủ Đức, TP.HCM",          "Phường Tăng Nhơn Phú", "geo-verify không báo sai địa chỉ đúng"),
     # P12 ghi sai nhưng OSM chỉ street-level → giữ mapping P12 (Phú Định) + geo_hint
     # Chánh Hưng. Khi có GOONG_API_KEY (số nhà) → kỳ vọng đổi thành Phường Chánh Hưng.
     ("4/13a chánh hưng, phường 12, quận 8, hồ chí minh",     "Phường Phú Định",   "P12 data-correct + hint Chánh Hưng (Goong sẽ nâng cấp)"),
