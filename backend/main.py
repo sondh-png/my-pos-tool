@@ -1376,6 +1376,46 @@ def _fix_admin(s):
     return s
 
 
+_WARD_DESC_RE = None
+_CAP_CLASS = ('[A-ZĐÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÈÉẺẼẸÊẾỀỂỄỆÌÍỈĨỊÒÓỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢ'
+              'ÙÚỦŨỤƯỨỪỬỮỰỲÝỶỸỴ]')
+
+def _clean_ward_list(items):
+    """Làm sạch danh sách 'phường/xã CŨ' — data đôi khi lọt cả câu nghị quyết
+    ('một phần diện tích TN, quy mô dân số của các phường Cửa Nam, Điện Biên...').
+    Trích các tên Phường/Xã/Thị trấn thực, bỏ mảnh mô tả."""
+    global _WARD_DESC_RE
+    import re as _r
+    if _WARD_DESC_RE is None:
+        _WARD_DESC_RE = _r.compile(r'diện tích|dân số|phần còn lại|sau khi|sắp xếp|sáp nhập', _r.I)
+    C = _CAP_CLASS
+    pat = (r'(ph\S*ờng|xã|thị trấn)\s+((?:%s[\wÀ-ỹ]*(?:\s+%s?[\wÀ-ỹ0-9]*)*)'
+           r'(?:\s*,\s*%s[\wÀ-ỹ]*(?:\s+%s?[\wÀ-ỹ0-9]*)*)*)') % (C, C, C, C)
+    out = []
+    def _add(nm, pre='Phường'):
+        nm = _fix_admin(_r.sub(r'\s+', ' ', nm).strip(' ,.'))
+        nm = _r.sub(r'\s*\(.*$', '', nm).strip()
+        if not nm or _WARD_DESC_RE.search(nm):
+            return
+        if not _r.match(r'(Phường|Xã|Thị trấn)', nm):
+            nm = pre + ' ' + nm
+        if nm not in out:
+            out.append(nm)
+    for it in items or []:
+        it = (it or '').strip()
+        if not it:
+            continue
+        if not _WARD_DESC_RE.search(it) and len(it) <= 30:
+            _add(it)
+            continue
+        for mm in _r.finditer(pat, it, _r.I):
+            g1 = mm.group(1).lower()
+            pre = 'Xã' if g1 == 'xã' else ('Thị trấn' if 'trấn' in g1 else 'Phường')
+            for nm in mm.group(2).split(','):
+                _add(nm.strip(), pre)
+    return out
+
+
 def _expand_abbr(s):
     """Mở rộng viết tắt hành chính để parse được phường/quận cũ:
       P./P  → Phường   Q./Q → Quận   H./H → Huyện   X./X → Xã   TT.→Thị trấn  TX.→Thị xã
@@ -2296,7 +2336,7 @@ async def api_address_reverse(q: str, province: Optional[str] = None, live: bool
         if _m.get('prov'):
             _m['prov'] = _fix_admin(_m['prov'])
         if _m.get('old_list'):
-            _m['old_list'] = [_fix_admin(x) for x in _m['old_list']]
+            _m['old_list'] = _clean_ward_list(_m['old_list'])
     return res
 
 
