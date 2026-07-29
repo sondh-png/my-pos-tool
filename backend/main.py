@@ -2038,15 +2038,35 @@ def _pip_geom(lon, lat, g):
 # ══════════════════════════════════════════════════════════════════
 class ConvertBatchReq(BaseModel):
     addresses: List[str]
+    mode: Optional[str] = "new"   # "new": cũ→mới (mặc định) | "old": mới→cũ
 
 
 @app.post("/api/convert-batch")
 async def api_convert_batch(req: ConvertBatchReq):
     """Chuyển hàng loạt: mỗi dòng 1 địa chỉ cũ dạng free-text → địa chỉ mới."""
     out = []
+    _mode = (req.mode or "new").lower()
     for raw in req.addresses[:200]:
         raw = (raw or '').strip()
         if not raw:
+            continue
+        # ── Chiều NGƯỢC (mới→cũ) cho cả lô ──
+        if _mode == "old":
+            try:
+                rev = await api_address_reverse(raw, None, True)
+            except Exception:
+                rev = {}
+            ro = rev.get("resolved_old")
+            m0 = (rev.get("matches") or [None])[0]
+            if ro:
+                ans = f"{ro['name']}" + (f", {ro['dist']}" if ro.get('dist') else "")
+                out.append({'input': raw, 'status': 'ok', 'new_ward': ans,
+                            'province': rev.get('province', ''), 'old': '', 'reverse': True})
+            elif m0 and m0.get("old_list"):
+                out.append({'input': raw, 'status': 'ambiguous',
+                            'candidates': m0["old_list"][:6], 'province': rev.get('province', '')})
+            else:
+                out.append({'input': raw, 'status': 'not_found', 'province': rev.get('province', '')})
             continue
         # Dùng CHUNG pipeline với tra lẻ (có geo-verify/fallback) để batch thông
         # minh y hệt: parse viết tắt, sửa phường sai theo đường, v.v. Geo chỉ chạy
