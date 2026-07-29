@@ -1364,11 +1364,23 @@ _QUERY_PHRASES = [
 ]
 
 def _expand_abbr(s):
-    """Mở rộng viết tắt QUẬN số: q8 / q.8 / q 8 / q08 → 'quan 8' (để lọc quận đúng,
-    tránh Phường số bị mập mờ khắp HCM). Chạy TRƯỚC khi đổi '.'→',' (khỏi vỡ 'q.8')."""
+    """Mở rộng viết tắt hành chính để parse được phường/quận cũ:
+      P./P  → Phường   Q./Q → Quận   H./H → Huyện   X./X → Xã   TT.→Thị trấn  TX.→Thị xã
+    Cả dạng số (P.8, Q12) lẫn dạng tên (P.Trung Mỹ Tây, Q.Gò Vấp, H.Bình Chánh).
+    Chạy TRƯỚC khi đổi '.'→',' (khỏi vỡ 'P.Tây Thạnh'). NB: TP. để yên (là tỉnh/TP)."""
     import re as _r
-    return _r.sub(r'(?<![a-zA-Z0-9])[qQ]\.?\s*0*(\d{1,2})(?![0-9])',
-                  lambda m: 'quan ' + m.group(1), s)
+    NL = r'(?<![a-zA-ZÀ-ỹ0-9])'      # ranh trái: không dính chữ/số (tránh TP., initials)
+    # 1) Dạng CÓ DẤU CHẤM + tên hoặc số (vd 'P.Trung Mỹ Tây', 'Q.Gò Vấp', 'H.Bình Chánh')
+    s = _r.sub(NL + r'[Tt][Tt]\.\s*', 'Thị trấn ', s)
+    s = _r.sub(NL + r'[Tt][Xx]\.\s*', 'Thị xã ', s)
+    s = _r.sub(NL + r'[Pp]\.\s*(?=[0-9A-Za-zÀ-ỹ])', 'Phường ', s)
+    s = _r.sub(NL + r'[Qq]\.\s*(?=[0-9A-Za-zÀ-ỹ])', 'Quận ', s)
+    s = _r.sub(NL + r'[Hh]\.\s*(?=[0-9A-Za-zÀ-ỹ])', 'Huyện ', s)
+    s = _r.sub(NL + r'[Xx]\.\s*(?=[A-Za-zÀ-ỹ])', 'Xã ', s)
+    # 2) Dạng KHÔNG DẤU CHẤM + SỐ (vd 'q8', 'p 4', 'Q12') — số mới đủ rõ để chắc chắn
+    s = _r.sub(NL + r'[Qq]\s*0*(\d{1,2})(?![0-9])', lambda m: 'Quận ' + m.group(1), s)
+    s = _r.sub(NL + r'[Pp]\s*0*(\d{1,2})(?![0-9])', lambda m: 'Phường ' + m.group(1), s)
+    return s
 
 
 def _clean_query(q):
@@ -2036,7 +2048,13 @@ async def api_convert_batch(req: ConvertBatchReq):
         raw = (raw or '').strip()
         if not raw:
             continue
-        res = _resolve_offline(raw)
+        # Dùng CHUNG pipeline với tra lẻ (có geo-verify/fallback) để batch thông
+        # minh y hệt: parse viết tắt, sửa phường sai theo đường, v.v. Geo chỉ chạy
+        # khi cần (dòng có đường mà offline chưa chắc) nên chi phí có kiểm soát.
+        try:
+            res = await api_address_resolve(raw, None, True)
+        except Exception:
+            res = _resolve_offline(raw)
         best = None
         for it in res.get('results', []):
             if it.get('confident') and it.get('candidates'):
