@@ -18,7 +18,7 @@ from ghn_client import (
     learn_endpoints, call_ghn_api,
     fetch_provinces, fetch_districts, fetch_wards,
     fetch_provinces_v3, fetch_districts_v3, fetch_wards_v3, fetch_wards_v3_by_province,
-    get_available_services, get_shipping_fee,
+    get_available_services, get_shipping_fee, get_station,
     create_order, get_order_detail, cancel_orders,
     get_print_token, get_tracking_logs, get_shop_info,
     send_otp_employee, add_employee_by_otp,
@@ -131,6 +131,9 @@ class OrderCreateRequest(BaseModel):
     # Items
     items: Optional[List[dict]] = None
     client_order_code: Optional[str] = None
+    # GỬI/NHẬN TẠI ĐIỂM (bưu cục GHN) — lấy id từ /api/ghn/stations
+    pick_station_id: Optional[int] = None      # shop mang hàng ĐẾN điểm gửi
+    deliver_station_id: Optional[int] = None   # khách NHẬN tại điểm
 
 class CancelOrderRequest(BaseModel):
     seller_id: str
@@ -621,6 +624,11 @@ async def api_create_order(req: OrderCreateRequest):
 
     if req.service_id:
         ghn_payload["service_id"] = req.service_id
+    # Gửi/nhận tại ĐIỂM (bưu cục). >0 mới gửi; 0/None = giao/lấy tận nơi như thường.
+    if req.pick_station_id:
+        ghn_payload["pick_station_id"] = req.pick_station_id
+    if req.deliver_station_id:
+        ghn_payload["deliver_station_id"] = req.deliver_station_id
     if req.from_name: ghn_payload["from_name"] = req.from_name
     if req.from_phone: ghn_payload["from_phone"] = req.from_phone
     if req.from_address: ghn_payload["from_address"] = req.from_address
@@ -931,6 +939,27 @@ async def api_districts_public(token: str, province_id: int):
 @app.get("/api/ghn/wards-public")
 async def api_wards_public(token: str, district_id: int):
     return await fetch_wards(token, district_id)
+
+
+@app.get("/api/ghn/stations")
+async def api_stations(seller_id: str, district_id: int, ward_code: str = "",
+                       offset: int = 0, limit: int = 100):
+    """Danh sách ĐIỂM gửi/nhận GHN theo quận (kèm phường nếu có) — cho 'gửi tại
+    điểm'. Trả gọn: [{station_id, name, address, phone}]."""
+    token, shop_id = _get_seller_creds(seller_id)
+    r = await get_station(token, shop_id, district_id, ward_code,
+                          offset, limit, seller_id=seller_id)
+    stations = []
+    if r.get("ok"):
+        for s in (r["data"].get("data") or []):
+            stations.append({
+                "station_id": s.get("stationId") or s.get("station_id") or s.get("id"),
+                "name": s.get("name") or s.get("stationName") or "",
+                "address": s.get("address") or s.get("fullAddress") or "",
+                "phone": s.get("phone") or s.get("hotline") or "",
+            })
+    return {"ok": r.get("ok", False), "stations": stations,
+            "message": (r.get("data") or {}).get("message") if isinstance(r.get("data"), dict) else None}
 
 
 # Knowledge Base

@@ -604,6 +604,16 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
   const [loadingFee, setLoadingFee]         = useState(false)
   const [creating, setCreating]             = useState(false)
 
+  // ── GỬI / NHẬN TẠI ĐIỂM GHN ──────────────────────────────────────────
+  const [stationOpen, setStationOpen]       = useState(false)
+  // Nhận tại điểm: điểm gần NGƯỜI NHẬN (theo districtId người nhận)
+  const [dlvStations, setDlvStations]       = useState([])
+  const [deliverStationId, setDeliverStationId] = useState('')
+  // Gửi tại điểm: điểm gần SHOP → cần chọn quận lấy hàng riêng
+  const [pickDistrictId, setPickDistrictId] = useState('')
+  const [pickStations, setPickStations]     = useState([])
+  const [pickStationId, setPickStationId]   = useState('')
+
   const selectedShop = agencyShops.find(s => s.id === shopId) ?? agencyShops[0]
 
   const currentServices = useMemo(() =>
@@ -677,6 +687,26 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
       .then(r => { if (r.ok && r.data.data) setWards(r.data.data.map(w => ({ code: w.WardCode, name: w.WardName }))) })
       .finally(() => setLoadingAddr(false))
   }, [districtId])
+
+  // NHẬN tại điểm: tải điểm GHN gần NGƯỜI NHẬN (theo district người nhận)
+  useEffect(() => {
+    if (!stationOpen || !districtId) { setDlvStations([]); return }
+    const sellerId = getSession()?.sellerId
+    if (!sellerId) return
+    apiFetch(`/api/ghn/stations?seller_id=${sellerId}&district_id=${districtId}${wardCode ? '&ward_code=' + encodeURIComponent(wardCode) : ''}`)
+      .then(r => setDlvStations((r.ok && r.data && r.data.stations) || []))
+      .catch(() => setDlvStations([]))
+  }, [stationOpen, districtId, wardCode])
+
+  // GỬI tại điểm: tải điểm GHN gần SHOP (theo quận lấy hàng chọn riêng)
+  useEffect(() => {
+    if (!stationOpen || !pickDistrictId) { setPickStations([]); return }
+    const sellerId = getSession()?.sellerId
+    if (!sellerId) return
+    apiFetch(`/api/ghn/stations?seller_id=${sellerId}&district_id=${pickDistrictId}`)
+      .then(r => setPickStations((r.ok && r.data && r.data.stations) || []))
+      .catch(() => setPickStations([]))
+  }, [stationOpen, pickDistrictId])
 
   // Kiểm tra địa chỉ cũ/mới (sau 7/2025) — debounce 400ms
   useEffect(() => {
@@ -904,7 +934,10 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
       width: Math.round(dimR) || 10,
       height: Math.round(dimC) || 10,
       // Vị trí 2: thông số chi tiết (cho hàng nặng)
-      items: itemsList
+      items: itemsList,
+      // Gửi/nhận tại điểm GHN (chỉ gửi khi có chọn)
+      pick_station_id: pickStationId ? parseInt(pickStationId) : undefined,
+      deliver_station_id: deliverStationId ? parseInt(deliverStationId) : undefined,
     }
 
     const newOrder = {
@@ -1225,6 +1258,49 @@ function CreateOrderDrawer({ open, onClose, onCreated }) {
                   </div>
                   <div style={{ fontSize:11, color:'#4B5563' }}>
                     {revInfo.matches[0].old_list.slice(0, 8).join(' • ')}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Gửi / Nhận tại điểm GHN */}
+            <div className="drawer-card">
+              <div onClick={() => setStationOpen(o => !o)} style={{ cursor:'pointer', display:'flex', alignItems:'center', gap:8, padding:'10px 12px' }}>
+                <span style={{ fontSize:14, fontWeight:700, color:C_TEXT_PRIMARY }}>📍 Gửi / Nhận tại điểm GHN</span>
+                <span style={{ marginLeft:'auto', fontSize:12, color:C_ACTION }}>{stationOpen ? 'Ẩn' : 'Tuỳ chọn'}</span>
+              </div>
+              {stationOpen && (
+                <div style={{ padding:'0 12px 12px', display:'flex', flexDirection:'column', gap:10 }}>
+                  <div>
+                    <div style={{ fontSize:12, fontWeight:600, color:C_TEXT_PRIMARY, marginBottom:4 }}>Khách NHẬN tại điểm (theo quận người nhận)</div>
+                    {(addrMode !== 'old' || !districtId) ? (
+                      <div style={{ fontSize:11, color:'#9CA3AF' }}>Chọn địa chỉ nhận ở chế độ <b>Địa chỉ cũ</b> để tải danh sách điểm.</div>
+                    ) : (
+                      <div className="field-input" style={{ height:34 }}>
+                        <select value={deliverStationId} onChange={e => setDeliverStationId(e.target.value)} style={{ width:'100%' }}>
+                          <option value="">— Giao tận nơi (mặc định) —</option>
+                          {dlvStations.map(s => <option key={s.station_id} value={s.station_id}>{s.name} — {s.address}</option>)}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <div style={{ fontSize:12, fontWeight:600, color:C_TEXT_PRIMARY, marginBottom:4 }}>Shop GỬI tại điểm (mang hàng ra bưu cục)</div>
+                    <div style={{ display:'flex', gap:8 }}>
+                      <div className="field-input" style={{ height:34, flex:1 }}>
+                        <select value={pickDistrictId} onChange={e => setPickDistrictId(e.target.value)} style={{ width:'100%' }}>
+                          <option value="">— Chọn quận lấy hàng —</option>
+                          {districts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                        </select>
+                      </div>
+                      <div className="field-input" style={{ height:34, flex:2 }}>
+                        <select value={pickStationId} onChange={e => setPickStationId(e.target.value)} style={{ width:'100%' }} disabled={!pickStations.length}>
+                          <option value="">— Lấy tận nơi (mặc định) —</option>
+                          {pickStations.map(s => <option key={s.station_id} value={s.station_id}>{s.name} — {s.address}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <div style={{ fontSize:11, color:'#9CA3AF', marginTop:3 }}>Danh sách quận lấy theo tỉnh của địa chỉ nhận đang chọn.</div>
                   </div>
                 </div>
               )}

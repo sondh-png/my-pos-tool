@@ -319,6 +319,30 @@ async def get_shipping_fee(
     )
 
 
+async def get_station(
+    token: str,
+    shop_id: int,
+    district_id: int,
+    ward_code: str = "",
+    offset: int = 0,
+    limit: int = 100,
+    seller_id: Optional[str] = None,
+) -> dict:
+    """Lấy danh sách ĐIỂM gửi/nhận GHN (bưu cục) theo quận/phường — để 'gửi tại
+    điểm' (pick_station_id) hoặc 'nhận tại điểm' (deliver_station_id).
+    GHN: GET /v2/shipping-order/get-station?district_id=&ward_code=&offset=&limit="""
+    body = {"district_id": district_id, "offset": offset, "limit": limit}
+    if ward_code:
+        body["ward_code"] = ward_code
+    return await _call(
+        token, shop_id,
+        path="/v2/shipping-order/get-station",
+        method="GET",
+        body=body,
+        seller_id=seller_id,
+    )
+
+
 # ══════════════════════════════════════════════════════════
 # ORDER MANAGEMENT
 # ══════════════════════════════════════════════════════════
