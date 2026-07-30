@@ -30,6 +30,9 @@ CASES = [
     ("94 Lê Văn Việt, P.Hiệp Phú, Thủ Đức, TP.HCM",          "Phường Tăng Nhơn Phú", "geo-verify không báo sai địa chỉ đúng"),
     # Đồng âm khác dấu: Tân Quy (Q7) ≠ Tân Quý (Tân Phú) — lọc theo dấu
     ("Phường Tân Quy, Quận 7, TP.HCM",                       "Phường Tân Hưng",   "đồng âm Tân Quy Q7 (không nhầm Phú Thọ Hòa)"),
+    # Phường CŨ bị XÉ theo diện tích (Ngã Tư Sở) — geocode số nhà → PIP ranh giới
+    # phường MỚI (new_bounds) → ra thẳng phường mới đúng.
+    ("229 Tây Sơn, Ngã Tư Sở, Đống Đa, Hà Nội",             "Phường Kim Liên",   "phường bị xé → PIP ranh giới mới"),
     # P12 ghi sai nhưng OSM chỉ street-level → giữ mapping P12 (Phú Định) + geo_hint
     # Chánh Hưng. Khi có GOONG_API_KEY (số nhà) → kỳ vọng đổi thành Phường Chánh Hưng.
     ("4/13a chánh hưng, phường 12, quận 8, hồ chí minh",     "Phường Phú Định",   "P12 data-correct + hint Chánh Hưng (Goong sẽ nâng cấp)"),
