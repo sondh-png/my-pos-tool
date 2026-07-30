@@ -1463,12 +1463,67 @@ def _old_ward_dist(pc, ward_name):
     return _OLD_BOUNDS_DIST_IDX[pc].get(key, '')
 
 
+_DISTRICT_PROV = None
+
+def _load_district_prov():
+    """Bảng district(cũ) → tỉnh(cũ), dựng từ dữ liệu hành chính pre-2025 (63 tỉnh)."""
+    global _DISTRICT_PROV
+    if _DISTRICT_PROV is None:
+        try:
+            p = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             'district_old_province.json')
+            with open(p, encoding='utf-8') as f:
+                _DISTRICT_PROV = json.load(f)
+        except Exception:
+            _DISTRICT_PROV = {'district_prov': {}, 'prov_disp': {}}
+    return _DISTRICT_PROV
+
+
+def _old_province_of_district(pc, dist_name):
+    """Tỉnh CŨ của 1 quận/huyện cũ. Khử trùng tên (Châu Thành ở 10 tỉnh) bằng
+    province_aliases: chỉ giữ tỉnh cũ đã sáp nhập vào tỉnh mới hiện tại (pc)."""
+    dp = _load_district_prov()
+    import re as _r
+    key = _r.sub(r'^\s*(quan|huyen|thi xa|thanh pho|tp|tx|thi tran|tt)\s+', '',
+                 _n(dist_name)).strip()
+    cands = dp.get('district_prov', {}).get(key, [])
+    if not cands:
+        return ''
+    alias = _load_resolver().get('province_aliases', {})
+    valid = {pc} | {k for k, v in alias.items() if v == pc}
+    hit = [c for c in cands if c in valid] or (cands if len(cands) == 1 else [])
+    if len(hit) == 1:
+        return dp.get('prov_disp', {}).get(hit[0], '')
+    return ''
+
+
 def _enrich_old_wards(pc, names):
-    """Gắn district CŨ vào mỗi phường/xã cũ → 'Phường An Sinh, Kinh Môn'."""
+    """Gắn quận + tỉnh CŨ vào mỗi phường/xã cũ → 'Phường An Sinh, Kinh Môn, Hải Dương'.
+    Ưu tiên tra thẳng ward trong dữ liệu pre-2025 (đủ cả huyện+tỉnh, khử trùng tên
+    bằng province_aliases); thiếu thì fallback district từ GADM old_bounds."""
+    import re as _r
+    dp = _load_district_prov()
+    ward_dp = dp.get('ward_dp', {})
+    prov_disp = dp.get('prov_disp', {})
+    alias = _load_resolver().get('province_aliases', {})
+    valid = {pc} | {k for k, v in alias.items() if v == pc}
     out = []
     for nm in names or []:
-        d = _fix_admin(_old_ward_dist(pc, nm))
-        out.append(f"{nm}, {d}" if d else nm)
+        wk = _r.sub(r'^\s*(phuong|phuong|xa|thi tran|tt)\s+', '', _n(nm)).strip()
+        cands = ward_dp.get(wk, [])
+        hit = [c for c in cands if c[1] in valid] or (cands if len(cands) == 1 else [])
+        if len(hit) == 1:
+            ddisp, pk = hit[0]
+            ddisp = ('Quận ' + ddisp) if ddisp.isdigit() else _fix_admin(ddisp)
+            tinh = prov_disp.get(pk, '')
+            out.append(', '.join([nm, ddisp] + ([tinh] if tinh else [])))
+            continue
+        dist = _fix_admin(_old_ward_dist(pc, nm))
+        if dist:
+            tinh = _old_province_of_district(pc, dist)
+            out.append(', '.join([nm, dist] + ([tinh] if tinh else [])))
+        else:
+            out.append(nm)
     return out
 
 
