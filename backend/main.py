@@ -2115,6 +2115,49 @@ async def _resolve_live(province_core, ward_core):
         return []
 
 
+_new_bounds_cache: dict = {}
+_new_disp_cache: dict = {}
+
+def _load_new_bounds(pc):
+    """Ranh giới phường MỚI (sau 7/2025, tải từ sapnhap.bando.com.vn) theo tỉnh —
+    để geocode điểm → phường MỚI trực tiếp (xử lý phường bị xé theo diện tích)."""
+    if pc in _new_bounds_cache:
+        return _new_bounds_cache[pc]
+    base = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(base, 'new_bounds', pc.replace(' ', '_') + '.json')
+    try:
+        with open(path, encoding='utf-8') as f:
+            data = json.load(f)
+    except Exception:
+        data = {}
+    _new_bounds_cache[pc] = data
+    return data
+
+
+def _new_ward_disp(pc, core):
+    """Tên hiển thị (có dấu) của phường mới từ core chuẩn hóa."""
+    if pc not in _new_disp_cache:
+        m = {}
+        for p in _load_new_wards_v3():
+            if _strip_prov(p.get('tentinhmoi', '')) == pc:
+                for w in p.get('phuongxa', []):
+                    m[_strip_ward(w.get('tenphuongxa', ''))] = w.get('tenphuongxa', '')
+                break
+        _new_disp_cache[pc] = m
+    import re as _r
+    ck = _r.sub(r'^\s*(phuong|xa|thi tran|dac khu|tt)\s+', '', core).strip()
+    return _new_disp_cache[pc].get(ck) or _fix_admin(core.title())
+
+
+def _new_ward_at_point(pc, lon, lat):
+    """Điểm (lon,lat) → tên phường MỚI chứa nó (PIP ranh giới mới local). None nếu
+    không có dữ liệu / không trúng. Đây là cách CHÍNH XÁC nhất cho phường bị xé."""
+    for core, polys in _load_new_bounds(pc).items():
+        if _point_in_polys(lon, lat, polys):
+            return _new_ward_disp(pc, core)
+    return None
+
+
 def _reverse_lookup(text, province_hint=None):
     """Tra NGƯỢC: địa chỉ/tên phường MỚI → các phường/xã CŨ đã gộp thành nó."""
     text = _clean_query(text)
@@ -2810,33 +2853,40 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
                     break
             if pt:
                 lon, lat = pt
-                # Xác định phường CŨ tại điểm: PIP old_bounds trước; PIP hụt (ranh
-                # giới GADM lệch) → dùng VietMap locality (phường VietMap gán sẵn).
-                apip3 = next((e for e in bounds3 if _pip_geom(lon, lat, e['g'])), None)
-                if apip3:
-                    a_name3, a_dist3 = apip3['name'], apip3.get('dist', '')
-                elif _last_geocode_ward:
-                    a_name3, a_dist3 = _last_geocode_ward, ''
+                # ƯU TIÊN: PIP ranh giới phường MỚI → ra THẲNG phường mới (chính xác
+                # nhất, xử lý được cả phường CŨ bị xé theo diện tích như Ngã Tư Sở).
+                nw_pt = _new_ward_at_point(pc3, lon, lat)
+                if nw_pt:
+                    res['results'] = [{
+                        'old': '', 'candidates': [{'new': nw_pt, 'dist': '', 'prov': pc3,
+                                                   'old_disp': ''}],
+                        'confident': True, 'correct_ward': nw_pt, 'geo': True,
+                        'from_street': True,
+                    }]
                 else:
-                    a_name3 = a_dist3 = None
-                if a_name3:
-                    d3 = _derive_new_from_old(pc3, _ward_core(a_name3), _n(a_dist3))
-                    if d3:
-                        res['results'] = [{
-                            'old': a_name3,
-                            'candidates': [{'new': d3['new'], 'dist': d3.get('dist', ''),
-                                            'prov': pc3, 'old_disp': a_name3}],
-                            'confident': True,
-                            'correct_ward': d3['new'],
-                            'geo': True,
-                            'geo_actual_old': {'name': a_name3, 'dist': a_dist3},
-                            'from_street': True,
-                        }]
+                    # Không có ranh giới mới → suy từ phường CŨ: PIP old_bounds, hụt
+                    # thì dùng VietMap locality; vẫn không map được → báo geo_old_only.
+                    apip3 = next((e for e in bounds3 if _pip_geom(lon, lat, e['g'])), None)
+                    if apip3:
+                        a_name3, a_dist3 = apip3['name'], apip3.get('dist', '')
+                    elif _last_geocode_ward:
+                        a_name3, a_dist3 = _last_geocode_ward, ''
                     else:
-                        # Geo tìm được phường CŨ nhưng THIẾU dữ liệu ánh xạ sang mới
-                        # (1 trong ~188 phường chưa có trong bảng chuyển đổi) → báo rõ.
-                        res['geo_old_only'] = {'name': _fix_admin(a_name3),
-                                               'dist': _fix_admin(a_dist3)}
+                        a_name3 = a_dist3 = None
+                    if a_name3:
+                        d3 = _derive_new_from_old(pc3, _ward_core(a_name3), _n(a_dist3))
+                        if d3:
+                            res['results'] = [{
+                                'old': a_name3,
+                                'candidates': [{'new': d3['new'], 'dist': d3.get('dist', ''),
+                                                'prov': pc3, 'old_disp': a_name3}],
+                                'confident': True, 'correct_ward': d3['new'], 'geo': True,
+                                'geo_actual_old': {'name': a_name3, 'dist': a_dist3},
+                                'from_street': True,
+                            }]
+                        else:
+                            res['geo_old_only'] = {'name': _fix_admin(a_name3),
+                                                   'dist': _fix_admin(a_dist3)}
 
     # Tổng hợp mức độ chắc chắn
     confident = [it for it in res['results'] if it['confident']]
