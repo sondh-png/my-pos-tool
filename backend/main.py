@@ -1445,6 +1445,33 @@ def _clean_ward_list(items):
     return out
 
 
+_OLD_BOUNDS_DIST_IDX: dict = {}
+
+def _old_ward_dist(pc, ward_name):
+    """District CŨ của 1 phường/xã cũ (tra GADM old_bounds theo tên)."""
+    import re as _r
+    if pc not in _OLD_BOUNDS_DIST_IDX:
+        idx = {}
+        for e in _load_old_bounds(pc):
+            k2 = e.get('k2')
+            if k2:
+                idx.setdefault(k2, e.get('dist', ''))
+        _OLD_BOUNDS_DIST_IDX[pc] = idx
+    core = _r.sub(r'^\s*(phường|phuong|xã|xa|thị trấn|thi tran|thị xã|thi xa)\s+',
+                  '', _n(ward_name))
+    key = ''.join(core.split())
+    return _OLD_BOUNDS_DIST_IDX[pc].get(key, '')
+
+
+def _enrich_old_wards(pc, names):
+    """Gắn district CŨ vào mỗi phường/xã cũ → 'Phường An Sinh, Kinh Môn'."""
+    out = []
+    for nm in names or []:
+        d = _fix_admin(_old_ward_dist(pc, nm))
+        out.append(f"{nm}, {d}" if d else nm)
+    return out
+
+
 def _expand_abbr(s):
     """Mở rộng viết tắt hành chính để parse được phường/quận cũ:
       P./P  → Phường   Q./Q → Quận   H./H → Huyện   X./X → Xã   TT.→Thị trấn  TX.→Thị xã
@@ -2365,7 +2392,8 @@ async def api_address_reverse(q: str, province: Optional[str] = None, live: bool
         if _m.get('prov'):
             _m['prov'] = _fix_admin(_m['prov'])
         if _m.get('old_list'):
-            _m['old_list'] = _clean_ward_list(_m['old_list'])
+            _pc_old = res.get('province_core') or _detect_province(q, province)
+            _m['old_list'] = _enrich_old_wards(_pc_old, _clean_ward_list(_m['old_list']))
     return res
 
 
