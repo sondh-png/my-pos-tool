@@ -2810,19 +2810,26 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
                     break
             if pt:
                 lon, lat = pt
-                actual3 = next((e for e in bounds3 if _pip_geom(lon, lat, e['g'])), None)
-                if actual3:
-                    d3 = _derive_new_from_old(pc3, _ward_core(actual3['name']),
-                                              _n(actual3.get('dist', '')))
+                # Xác định phường CŨ tại điểm: PIP old_bounds trước; PIP hụt (ranh
+                # giới GADM lệch) → dùng VietMap locality (phường VietMap gán sẵn).
+                apip3 = next((e for e in bounds3 if _pip_geom(lon, lat, e['g'])), None)
+                if apip3:
+                    a_name3, a_dist3 = apip3['name'], apip3.get('dist', '')
+                elif _last_geocode_ward:
+                    a_name3, a_dist3 = _last_geocode_ward, ''
+                else:
+                    a_name3 = a_dist3 = None
+                if a_name3:
+                    d3 = _derive_new_from_old(pc3, _ward_core(a_name3), _n(a_dist3))
                     if d3:
                         res['results'] = [{
-                            'old': actual3['name'],
+                            'old': a_name3,
                             'candidates': [{'new': d3['new'], 'dist': d3.get('dist', ''),
-                                            'prov': pc3, 'old_disp': actual3['name']}],
+                                            'prov': pc3, 'old_disp': a_name3}],
                             'confident': True,
                             'correct_ward': d3['new'],
                             'geo': True,
-                            'geo_actual_old': {'name': actual3['name'], 'dist': actual3['dist']},
+                            'geo_actual_old': {'name': a_name3, 'dist': a_dist3},
                             'from_street': True,
                         }]
 
