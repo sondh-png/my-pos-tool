@@ -2452,6 +2452,57 @@ async def api_address_reverse(q: str, province: Optional[str] = None, live: bool
     return res
 
 
+@app.get("/api/poi")
+async def api_poi(q: str, province: str = ""):
+    """Tra ĐỊA DANH/POI (chợ, bệnh viện, trường, mall...) → danh sách nơi ứng viên
+    kèm phường/quận/tỉnh (từ VietMap). Tính năng riêng, KHÔNG đụng resolve/reverse."""
+    import httpx
+    if not VIETMAP_API_KEY:
+        return {"pois": []}
+    pc = (_prov_core(province) if province else None) or _detect_province(_clean_query(q))
+    params = {'api-version': '1.1', 'apikey': VIETMAP_API_KEY, 'text': q}
+    if pc:
+        c = _province_center(pc)
+        if c:
+            params['focus.point.lon'] = c[0]
+            params['focus.point.lat'] = c[1]
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get('https://maps.vietmap.vn/api/search', params=params)
+        feats = (r.json().get('data') or {}).get('features') or []
+    except Exception as e:
+        print(f"[poi] {e}", flush=True)
+        feats = []
+    pal = _load_resolver().get('province_aliases', {})
+    def _rgcore(rg):
+        rg = _n(rg).replace('tinh ', '').replace('thanh pho ', '').strip()
+        return pal.get(rg, rg)
+    out, seen = [], set()
+    for f in feats:
+        p = f.get('properties', {})
+        co = f.get('geometry', {}).get('coordinates') or []
+        if len(co) < 2:
+            continue
+        rgc = _rgcore(p.get('region', ''))
+        # lọc theo tỉnh (nếu xác định được) — tránh trùng tên địa danh tỉnh khác
+        if pc and rgc and not (pc in rgc or rgc in pc):
+            continue
+        key = (p.get('name'), p.get('locality'), p.get('county'))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append({
+            "name": _fix_admin(p.get('name') or ''),
+            "ward": _fix_admin(p.get('locality') or ''),
+            "district": _fix_admin(p.get('county') or ''),
+            "province": _fix_admin(p.get('region') or ''),
+            "lat": co[1], "lon": co[0],
+        })
+        if len(out) >= 6:
+            break
+    return {"pois": out}
+
+
 _NEW_WARD_SET_CACHE: dict = {}
 
 def _new_ward_set(pc):
