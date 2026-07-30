@@ -2452,6 +2452,40 @@ async def api_address_reverse(q: str, province: Optional[str] = None, live: bool
     return res
 
 
+_NEW_WARD_SET_CACHE: dict = {}
+
+def _new_ward_set(pc):
+    """Tập ward-core MỚI (sau 7/2025) của tỉnh — để biết 1 phường là MỚI hay chưa."""
+    if pc in _NEW_WARD_SET_CACHE:
+        return _NEW_WARD_SET_CACHE[pc]
+    s = set()
+    for p in _load_new_wards_v3():
+        if _strip_prov(p.get('tentinhmoi', '')) == pc:
+            for w in p.get('phuongxa', []):
+                core = _strip_ward(w.get('tenphuongxa', ''))
+                if core:
+                    s.add(core)
+            break
+    _NEW_WARD_SET_CACHE[pc] = s
+    return s
+
+
+@app.get("/api/classify")
+async def api_classify(q: str):
+    """Phân loại địa chỉ đầu vào: phường ghi là CŨ hay MỚI (offline, không geo).
+    Dùng để tự chọn chiều tra (ra cũ/ra mới) khi user ghi ngược."""
+    qc = _clean_query(q)
+    pc = _detect_province(qc)
+    olds = _extract_old_wards(qc)
+    resolver = _load_resolver().get('resolver', {})
+    bucket = resolver.get(pc, {}) if pc else {}
+    is_old = any(_ward_core(o) in bucket for o in olds)
+    newset = _new_ward_set(pc) if pc else set()
+    is_new = any(_strip_ward(o) in newset for o in olds)
+    return {"province_core": pc or "", "wards": olds,
+            "is_old": is_old, "is_new": is_new}
+
+
 @app.get("/api/address-resolve")
 async def api_address_resolve(q: str, province: Optional[str] = None, live: bool = True):
     """
