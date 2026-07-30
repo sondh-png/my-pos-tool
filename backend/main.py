@@ -2018,6 +2018,10 @@ def _build_geo_queries(text, province_disp):
         if street2 and street2 != street:
             street = street2
         dist_seg = next((s for s in segs[1:] if _re.search(r'(?i)quận|huyện|q\.|thị xã|tp', s)), '')
+        # Quận ghi KHÔNG prefix (vd 'Đống Đa') → lấy đoạn ngay TRƯỚC tỉnh làm quận
+        # (giúp VietMap khử trùng tên đường: '229 Tây Sơn, Đống Đa, HN' ≠ Tây Sơn nơi khác)
+        if not dist_seg and len(segs) >= 3:
+            dist_seg = segs[-2]
         dist = _clean_admin(dist_seg)
         # 1) KÈM SỐ NHÀ trước — Goong định vị được số nhà hẻm (405/15...)
         if segs[0] != street:
