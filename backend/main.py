@@ -2832,6 +2832,11 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
                             'geo_actual_old': {'name': a_name3, 'dist': a_dist3},
                             'from_street': True,
                         }]
+                    else:
+                        # Geo tìm được phường CŨ nhưng THIẾU dữ liệu ánh xạ sang mới
+                        # (1 trong ~188 phường chưa có trong bảng chuyển đổi) → báo rõ.
+                        res['geo_old_only'] = {'name': _fix_admin(a_name3),
+                                               'dist': _fix_admin(a_dist3)}
 
     # Tổng hợp mức độ chắc chắn
     confident = [it for it in res['results'] if it['confident']]
