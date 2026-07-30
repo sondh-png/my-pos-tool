@@ -2470,10 +2470,30 @@ def _new_ward_set(pc):
     return s
 
 
+def _ward_in_province(pc, wards):
+    """Rule 1 — anchor cấp cao nhất (tỉnh): phường input có THỰC SỰ thuộc tỉnh
+    đã ghi không? Check top-down qua tập phường MỚI + phường CŨ (pre-2025,
+    khử tỉnh qua province_aliases). None = không đủ dữ liệu để kết luận."""
+    if not pc or not wards:
+        return None
+    dp = _load_district_prov()
+    ward_dp = dp.get('ward_dp', {})
+    alias = _load_resolver().get('province_aliases', {})
+    valid = {pc} | {k for k, v in alias.items() if v == pc}
+    newset = _new_ward_set(pc)
+    for o in wards:
+        wk = _strip_ward(o)
+        if wk in newset:
+            return True
+        if any(ent[1] in valid for ent in ward_dp.get(wk, [])):
+            return True
+    return False
+
+
 @app.get("/api/classify")
 async def api_classify(q: str):
-    """Phân loại địa chỉ đầu vào: phường ghi là CŨ hay MỚI (offline, không geo).
-    Dùng để tự chọn chiều tra (ra cũ/ra mới) khi user ghi ngược."""
+    """Phân loại địa chỉ đầu vào: phường ghi là CŨ hay MỚI (offline, không geo)
+    + phường có thuộc tỉnh đã ghi không (Rule 1). Dùng để tự chọn chiều tra."""
     qc = _clean_query(q)
     pc = _detect_province(qc)
     olds = _extract_old_wards(qc)
@@ -2483,7 +2503,8 @@ async def api_classify(q: str):
     newset = _new_ward_set(pc) if pc else set()
     is_new = any(_strip_ward(o) in newset for o in olds)
     return {"province_core": pc or "", "wards": olds,
-            "is_old": is_old, "is_new": is_new}
+            "is_old": is_old, "is_new": is_new,
+            "ward_in_prov": _ward_in_province(pc, olds)}
 
 
 @app.get("/api/address-resolve")
