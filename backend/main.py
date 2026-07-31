@@ -1527,6 +1527,22 @@ def _enrich_old_wards(pc, names):
     return out
 
 
+# Viết tắt tên ĐƯỜNG phổ biến (chỉ những cái rõ ràng, không mập mờ) — bung ra để
+# VietMap geocode được (nó không hiểu 'XVNT'). Khớp cả hoa/thường, nguyên token.
+_STREET_ABBR = {
+    'XVNT': 'Xô Viết Nghệ Tĩnh',
+    'CMT8': 'Cách Mạng Tháng 8',
+    'CMTT': 'Cách Mạng Tháng Tám',
+    'NKKN': 'Nam Kỳ Khởi Nghĩa',
+    'NTMK': 'Nguyễn Thị Minh Khai',
+    'DBP': 'Điện Biên Phủ',
+    'PVD': 'Phạm Văn Đồng',
+    'NVL': 'Nguyễn Văn Linh',
+    'HTP': 'Huỳnh Tấn Phát',
+    'LVS': 'Lê Văn Sỹ',
+}
+
+
 def _expand_abbr(s):
     """Mở rộng viết tắt hành chính để parse được phường/quận cũ:
       P./P  → Phường   Q./Q → Quận   H./H → Huyện   X./X → Xã   TT.→Thị trấn  TX.→Thị xã
@@ -1534,6 +1550,9 @@ def _expand_abbr(s):
     Chạy TRƯỚC khi đổi '.'→',' (khỏi vỡ 'P.Tây Thạnh'). NB: TP. để yên (là tỉnh/TP)."""
     import re as _r
     NL = r'(?<![a-zA-ZÀ-ỹ0-9])'      # ranh trái: không dính chữ/số (tránh TP., initials)
+    # 0) Viết tắt TÊN ĐƯỜNG phổ biến (VietMap không hiểu 'XVNT' → phải bung ra để geo)
+    for _ab, _full in _STREET_ABBR.items():
+        s = _r.sub(NL + _r.escape(_ab) + r'(?![a-zA-ZÀ-ỹ0-9])', _full, s, flags=_r.IGNORECASE)
     # 1) Dạng CÓ DẤU CHẤM + tên hoặc số (vd 'P.Trung Mỹ Tây', 'Q.Gò Vấp', 'H.Bình Chánh')
     s = _r.sub(NL + r'[Tt][Tt]\.\s*', 'Thị trấn ', s)
     s = _r.sub(NL + r'[Tt][Xx]\.\s*', 'Thị xã ', s)
