@@ -1,0 +1,49 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;padding:0}#w{width:640px;height:360px;overflow:hidden}
+</style></head><body><div id="w">
+<svg width="640" height="360" viewBox="0 0 640 360" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0E2A38"/><stop offset="1" stop-color="#123B4F"/>
+    </linearGradient>
+    <linearGradient id="orange" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FF8A3D"/><stop offset="1" stop-color="#F2662C"/>
+    </linearGradient>
+    <linearGradient id="pin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FF5A5F"/><stop offset="1" stop-color="#E03B41"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="360" fill="url(#bg)"/>
+  <!-- map grid on right -->
+  <g opacity="0.16" stroke="#4FE0C4" stroke-width="2">
+    <path d="M360 40 L620 40 M360 110 L620 110 M360 180 L620 180 M360 250 L620 250 M360 320 L620 320"/>
+    <path d="M400 20 L400 340 M470 20 L470 340 M540 20 L540 340 M610 20 L610 340"/>
+  </g>
+  <!-- roads -->
+  <path d="M360 300 Q470 220 620 240" stroke="#2E5568" stroke-width="10" fill="none" stroke-linecap="round"/>
+  <path d="M380 60 Q520 120 600 90" stroke="#2E5568" stroke-width="8" fill="none" stroke-linecap="round"/>
+  <!-- pins on map -->
+  <g transform="translate(470,150)"><path d="M0 0 C 20 0 20 26 0 42 C -20 26 -20 0 0 0 Z" fill="url(#pin)"/><circle cx="0" cy="9" r="6" fill="#fff"/></g>
+  <g transform="translate(560,210) scale(0.75)"><path d="M0 0 C 20 0 20 26 0 42 C -20 26 -20 0 0 0 Z" fill="url(#orange)"/><circle cx="0" cy="9" r="6" fill="#fff"/></g>
+  <g transform="translate(415,255) scale(0.7)"><path d="M0 0 C 20 0 20 26 0 42 C -20 26 -20 0 0 0 Z" fill="#4FE0C4"/><circle cx="0" cy="9" r="6" fill="#123B4F"/></g>
+
+  <!-- robot mascot left -->
+  <g transform="translate(70,96)">
+    <line x1="80" y1="6" x2="80" y2="-12" stroke="#FFE08A" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="80" cy="-18" r="9" fill="#FFE08A"/>
+    <rect x="26" y="6" width="108" height="150" rx="30" fill="url(#orange)"/>
+    <rect x="40" y="14" width="80" height="70" rx="22" fill="#FFFFFF"/>
+    <rect x="52" y="28" width="56" height="38" rx="14" fill="#0E2A38"/>
+    <circle cx="70" cy="47" r="8" fill="#4FE0C4"/><circle cx="72" cy="44" r="2.6" fill="#fff"/>
+    <circle cx="90" cy="47" r="8" fill="#4FE0C4"/><circle cx="92" cy="44" r="2.6" fill="#fff"/>
+    <path d="M66 74 q14 12 28 0" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <rect x="52" y="100" width="56" height="42" rx="12" fill="#FFFFFF" opacity="0.92"/>
+    <rect x="60" y="110" width="40" height="5" rx="2.5" fill="#F2662C"/>
+    <rect x="60" y="121" width="30" height="5" rx="2.5" fill="#123B4F"/>
+    <rect x="60" y="132" width="24" height="5" rx="2.5" fill="#4FE0C4"/>
+  </g>
+
+  <!-- text -->
+  <text x="300" y="66" font-family="Segoe UI, Arial, sans-serif" font-size="34" font-weight="800" fill="#FFFFFF">GHN Address Bot</text>
+  <text x="300" y="100" font-family="Segoe UI, Arial, sans-serif" font-size="18" fill="#9FE7D8">Tra địa chỉ cũ ↔ mới sau sáp nhập 7/2025</text>
+</svg></div></body></html>

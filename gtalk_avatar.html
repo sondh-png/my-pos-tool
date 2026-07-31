@@ -1,0 +1,35 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;padding:0}#w{width:160px;height:160px;overflow:hidden}
+</style></head><body><div id="w">
+<svg width="160" height="160" viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FF8A3D"/><stop offset="1" stop-color="#F2662C"/>
+    </linearGradient>
+    <linearGradient id="pin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FF5A5F"/><stop offset="1" stop-color="#E03B41"/>
+    </linearGradient>
+  </defs>
+  <rect width="160" height="160" rx="34" fill="url(#bg)"/>
+  <!-- antenna -->
+  <line x1="80" y1="40" x2="80" y2="26" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="80" cy="22" r="6" fill="#FFE08A"/>
+  <!-- robot head -->
+  <rect x="40" y="42" width="80" height="66" rx="20" fill="#FFFFFF"/>
+  <rect x="40" y="42" width="80" height="66" rx="20" fill="none" stroke="#FFD8BE" stroke-width="2"/>
+  <!-- screen -->
+  <rect x="52" y="56" width="56" height="34" rx="12" fill="#123B4F"/>
+  <!-- eyes -->
+  <circle cx="69" cy="73" r="7" fill="#4FE0C4"/><circle cx="71" cy="71" r="2.4" fill="#fff"/>
+  <circle cx="91" cy="73" r="7" fill="#4FE0C4"/><circle cx="93" cy="71" r="2.4" fill="#fff"/>
+  <!-- smile -->
+  <path d="M66 98 q14 12 28 0" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <!-- map pin held -->
+  <g transform="translate(112,96)">
+    <path d="M0 0 C 14 0 14 18 0 30 C -14 18 -14 0 0 0 Z" fill="url(#pin)" transform="translate(0,-4) scale(0.9)"/>
+    <circle cx="0" cy="6.5" r="4.2" fill="#fff"/>
+  </g>
+  <!-- ears -->
+  <rect x="34" y="62" width="8" height="22" rx="4" fill="#FFE08A"/>
+  <rect x="118" y="62" width="8" height="22" rx="4" fill="#FFE08A"/>
+</svg></div></body></html>
