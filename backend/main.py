@@ -1839,6 +1839,8 @@ _last_geocode_ward = None
 # TẤT CẢ phường VietMap gán cho địa chỉ (nhiều feature cùng số nhà ở phường khác
 # nhau) — nếu phường user ghi nằm trong đây thì user ĐÚNG, không được báo sai.
 _last_geocode_wards = []
+# Quận/huyện VietMap gán cho điểm — để chặn khi geocode lạc sang huyện KHÁC
+_last_geocode_county = None
 
 _prov_center_cache: dict = {}
 
@@ -1868,10 +1870,11 @@ async def _geocode_vn(q, viewbox=None, prov_core=None):
     viewbox=(lonmin,latmin,lonmax,latmax): giới hạn vùng tìm (tránh trùng tên
     đường ở thành phố khác trong cùng tỉnh mới, VD Kon Tum vs Quảng Ngãi)."""
     import httpx
-    global _last_geocode_precise, _last_geocode_ward, _last_geocode_wards
+    global _last_geocode_precise, _last_geocode_ward, _last_geocode_wards, _last_geocode_county
     _last_geocode_precise = False
     _last_geocode_ward = None
     _last_geocode_wards = []
+    _last_geocode_county = None
     # 0) VietMap — geocoder VN, ĐỊNH VỊ ĐÚNG SỐ NHÀ (kể cả hẻm 266/10)
     if VIETMAP_API_KEY:
         try:
@@ -1948,6 +1951,7 @@ async def _geocode_vn(q, viewbox=None, prov_core=None):
                 f, lon, lat = pick
                 _last_geocode_precise = _is_house(f)
                 _last_geocode_ward = f.get('properties', {}).get('locality') or None
+                _last_geocode_county = f.get('properties', {}).get('county') or None
                 return lon, lat
         except Exception as e:
             print(f"[geocode-vietmap] {e}", flush=True)
@@ -2876,6 +2880,20 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
                     pt = await _geocode_vn(q_geo, prov_core=res.get('province_core'))
                 if pt:
                     break
+            # CHẶN geocode LẠC HUYỆN: input ghi rõ quận/huyện mà VietMap gán điểm
+            # sang huyện KHÁC (vd 'đường 334, Vân Đồn' → điểm ở Hạ Long) → bỏ, không
+            # đoán bừa (đường trùng tên/cao tốc dài dễ geocode lệch).
+            if pt and _last_geocode_county:
+                _dseg = next((s for s in q.split(',')
+                              if _re.search(r'(?i)quận|huyện|thị xã', s)), '')
+                _sd = _n(_re.sub(r'(?i)\b(quận|huyện|thị xã|thành phố|tp|tx|q\.|h\.|đảo)\s*',
+                                 '', _dseg))
+                _gc = _n(_re.sub(r'(?i)\b(quận|huyện|thị xã|thành phố|tp|tx|thị trấn|đảo)\s*',
+                                 '', _last_geocode_county))
+                if _sd and _gc and not (_sd in _gc or _gc in _sd):
+                    res['geo_wrong_county'] = {'stated': _dseg.strip(),
+                                               'geo': _last_geocode_county}
+                    pt = None
             if pt:
                 lon, lat = pt
                 # ƯU TIÊN: PIP ranh giới phường MỚI → ra THẲNG phường mới (chính xác
