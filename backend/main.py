@@ -2354,8 +2354,18 @@ async def api_convert_batch(req: ConvertBatchReq):
                         'candidates': [c['new'] for c in best['candidates'][:5]],
                         'province': res.get('province', '')})
         else:
-            out.append({'input': raw, 'status': 'not_found',
-                        'province': res.get('province', '')})
+            # Rule 3: 'ra mới' nhưng không thấy phường CŨ → check phường đó có phải
+            # đã là phường MỚI không. Nếu đúng → báo 'đã là mới', đừng "không tìm thấy".
+            _cl = await api_classify(raw)
+            if _cl.get('is_new') and not _cl.get('is_old'):
+                _pc = res.get('province_core', '')
+                _w = (_cl.get('wards') or [''])[0]
+                out.append({'input': raw, 'status': 'already_new',
+                            'new_ward': (_new_ward_disp(_pc, _w) if _pc else _w),
+                            'province': res.get('province', '')})
+            else:
+                out.append({'input': raw, 'status': 'not_found',
+                            'province': res.get('province', '')})
     for o in out:
         if o.get('new_ward'):
             o['new_ward'] = _fix_admin(o['new_ward'])
