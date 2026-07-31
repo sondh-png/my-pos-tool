@@ -2909,6 +2909,55 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
     return res
 
 
+@app.get("/api/normalize")
+async def api_normalize(q: str):
+    """CHUẨN HÓA 1 PHÁT cho GHN: địa chỉ bất kỳ (lộn xộn/sai phường/thiếu ward)
+    → 1 object sạch sẵn sàng tạo đơn: số nhà+đường, phường MỚI, tỉnh,
+    ward_id_v2, độ tin cậy, cảnh báo."""
+    res = await api_address_resolve(q, None, True)
+    prov = _fix_admin(res.get('province', ''))
+    results = res.get('results', [])
+    best = (next((it for it in results if it.get('confident') and it.get('candidates')), None)
+            or next((it for it in results if it.get('candidates')), None))
+    # số nhà + đường (đoạn đầu nếu có street)
+    _seg0 = _clean_query(q).split(',')[0].strip()
+    _s0n = _n(_seg0)
+    _admin0 = _s0n.startswith(('phuong ', 'xa ', 'quan ', 'huyen ', 'thi tran ',
+                               'thi xa ', 'tinh ', 'tp ', 'thanh pho '))
+    detail = _seg0 if ((not _admin0) and _re.search(r'\d|duong|hem|kiet|so ', _s0n)) else ''
+    warnings = []
+    if not best or not best.get('candidates'):
+        cls = await api_classify(q)
+        if res.get('geo_old_only'):
+            warnings.append("Phường cũ tìm được nhưng CHƯA có ánh xạ mới — tra tay")
+        if cls.get('ward_in_prov') is False:
+            warnings.append("Phường/xã có thể KHÔNG thuộc tỉnh đã ghi")
+        if not warnings:
+            warnings.append("Chưa xác định được phường — thêm số nhà + tên đường")
+        return {"ok": False, "input": q, "detail": detail, "new_ward": None,
+                "province": prov, "ward_id_v2": None, "full_address": None,
+                "confidence": "none", "warnings": warnings,
+                "geo_old": res.get('geo_old_only')}
+    c = best['candidates'][0]
+    new_ward = c['new']
+    _wid = await api_ward_v3_id(province=res.get('province', ''), ward=new_ward)
+    ward_id_v2 = _wid.get('ward_id_v2') if _wid.get('found') else None
+    if best.get('geo') or best.get('from_street'):
+        conf = 'geo'
+    elif best.get('confident'):
+        conf = 'high'
+    else:
+        conf = 'ambiguous'
+    if best.get('stated_wrong'):
+        warnings.append(f"Phường ghi \"{best['stated_wrong']}\" SAI → đúng là {new_ward}")
+    full = ', '.join(x for x in (detail, new_ward, prov) if x)
+    return {"ok": True, "input": q, "detail": detail, "new_ward": new_ward,
+            "province": prov, "ward_id_v2": ward_id_v2, "full_address": full,
+            "confidence": conf, "warnings": warnings,
+            "candidates": ([x['new'] for x in best['candidates'][:5]]
+                           if conf == 'ambiguous' else None)}
+
+
 # ══════════════════════════════════════════════════════════════════
 # TELEGRAM BRIDGE
 # ══════════════════════════════════════════════════════════════════
