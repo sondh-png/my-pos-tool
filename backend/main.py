@@ -2909,6 +2909,48 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
     return res
 
 
+_PROV_NAMES_CACHE: dict = {}
+
+def _prov_ward_names(pc):
+    """Tên phường (mới + cũ) của tỉnh — để gợi ý 'did-you-mean' khi user gõ sai."""
+    if pc in _PROV_NAMES_CACHE:
+        return _PROV_NAMES_CACHE[pc]
+    names = {}   # core chuẩn hóa -> tên hiển thị
+    for p in _load_new_wards_v3():
+        if _strip_prov(p.get('tentinhmoi', '')) == pc:
+            for w in p.get('phuongxa', []):
+                nm = w.get('tenphuongxa', '')
+                if nm:
+                    names[_strip_ward(nm)] = nm
+            break
+    for wc, cands in _load_resolver().get('resolver', {}).get(pc, {}).items():
+        for c in cands:
+            od = c.get('old') or ''
+            if od:
+                names.setdefault(_strip_ward(od), od)
+    _PROV_NAMES_CACHE[pc] = names
+    return names
+
+
+def _suggest_wards(pc, wards, n=3):
+    """Gợi ý phường gần đúng (fuzzy) cho các ward user ghi sai."""
+    import difflib
+    if not pc or not wards:
+        return []
+    names = _prov_ward_names(pc)
+    keys = list(names.keys())
+    out = []
+    for w in wards:
+        wk = _strip_ward(w)
+        if wk in names:   # đúng rồi thì không gợi ý
+            continue
+        for m in difflib.get_close_matches(wk, keys, n=n, cutoff=0.62):
+            disp = names[m]
+            if disp not in out:
+                out.append(disp)
+    return out[:5]
+
+
 @app.get("/api/normalize")
 async def api_normalize(q: str):
     """CHUẨN HÓA 1 PHÁT cho GHN: địa chỉ bất kỳ (lộn xộn/sai phường/thiếu ward)
@@ -2934,10 +2976,11 @@ async def api_normalize(q: str):
             warnings.append("Phường/xã có thể KHÔNG thuộc tỉnh đã ghi")
         if not warnings:
             warnings.append("Chưa xác định được phường — thêm số nhà + tên đường")
+        _sug = _suggest_wards(res.get('province_core', ''), cls.get('wards') or [])
         return {"ok": False, "input": q, "detail": detail, "new_ward": None,
                 "province": prov, "ward_id_v2": None, "full_address": None,
                 "confidence": "none", "warnings": warnings,
-                "geo_old": res.get('geo_old_only')}
+                "suggestions": _sug, "geo_old": res.get('geo_old_only')}
     c = best['candidates'][0]
     new_ward = c['new']
     _wid = await api_ward_v3_id(province=res.get('province', ''), ward=new_ward)
@@ -2956,6 +2999,50 @@ async def api_normalize(q: str):
             "confidence": conf, "warnings": warnings,
             "candidates": ([x['new'] for x in best['candidates'][:5]]
                            if conf == 'ambiguous' else None)}
+
+
+class NormalizeBatchReq(BaseModel):
+    addresses: List[str]
+
+
+@app.post("/api/normalize-batch")
+async def api_normalize_batch(req: NormalizeBatchReq):
+    """Chuẩn hóa HÀNG LOẠT cho GHN: nhận list địa chỉ → mỗi cái ra object đầy đủ
+    (phường mới + ward_id_v2 + confidence). Dùng cho POS xử lý file/lô lớn."""
+    out = []
+    for a in req.addresses[:300]:
+        a = (a or '').strip()
+        if not a:
+            continue
+        try:
+            out.append(await api_normalize(a))
+        except Exception as e:
+            out.append({"ok": False, "input": a, "confidence": "error",
+                        "warnings": [str(e)]})
+    ok = sum(1 for r in out if r.get('ok'))
+    return {"total": len(out), "ok": ok, "failed": len(out) - ok, "results": out}
+
+
+@app.post("/api/normalize-csv")
+async def api_normalize_csv(payload: dict):
+    """Chuẩn hóa từ CSV thô: {'csv': '...', 'col': 0}. Trả CSV kết quả
+    (input, phường mới, tỉnh, ward_id_v2, confidence, cảnh báo)."""
+    import csv as _csv
+    import io as _io
+    text = payload.get('csv', '') or ''
+    col = int(payload.get('col', 0))
+    rows = list(_csv.reader(_io.StringIO(text)))
+    addrs = [(r[col].strip() if len(r) > col else '') for r in rows]
+    res = await api_normalize_batch(NormalizeBatchReq(addresses=[a for a in addrs if a]))
+    buf = _io.StringIO()
+    w = _csv.writer(buf)
+    w.writerow(['input', 'phuong_moi', 'tinh', 'ward_id_v2', 'confidence', 'canh_bao'])
+    for r in res['results']:
+        w.writerow([r.get('input', ''), r.get('new_ward') or '', r.get('province') or '',
+                    r.get('ward_id_v2') or '', r.get('confidence', ''),
+                    ' | '.join(r.get('warnings') or [])])
+    return {"total": res['total'], "ok": res['ok'], "failed": res['failed'],
+            "csv": buf.getvalue()}
 
 
 # ══════════════════════════════════════════════════════════════════
