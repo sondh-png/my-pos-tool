@@ -2600,9 +2600,11 @@ async def api_classify(q: str):
     is_old = any(_ward_core(o) in bucket for o in olds)
     newset = _new_ward_set(pc) if pc else set()
     is_new = any(_strip_ward(o) in newset for o in olds)
+    # Did-you-mean: nếu phường ghi KHÔNG khớp cũ lẫn mới → gợi ý gần đúng
+    sug = _suggest_wards(pc, olds) if (pc and olds and not is_old and not is_new) else []
     return {"province_core": pc or "", "wards": olds,
             "is_old": is_old, "is_new": is_new,
-            "ward_in_prov": _ward_in_province(pc, olds)}
+            "ward_in_prov": _ward_in_province(pc, olds), "suggestions": sug}
 
 
 @app.get("/api/address-resolve")
