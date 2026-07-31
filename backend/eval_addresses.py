@@ -33,6 +33,8 @@ CASES = [
     # Phường CŨ bị XÉ theo diện tích (Ngã Tư Sở) — geocode số nhà → PIP ranh giới
     # phường MỚI (new_bounds) → ra thẳng phường mới đúng.
     ("229 Tây Sơn, Ngã Tư Sở, Đống Đa, Hà Nội",             "Phường Kim Liên",   "phường bị xé → PIP ranh giới mới"),
+    # Viết tắt tên đường: XVNT → Xô Viết Nghệ Tĩnh → geo định vị (P13 sai → Thạnh Mỹ Tây)
+    ("374 XVNT, P13, Bình Thạnh",                            "Phường Thạnh Mỹ Tây", "viết tắt đường XVNT + geo"),
     # P12 ghi sai nhưng OSM chỉ street-level → giữ mapping P12 (Phú Định) + geo_hint
     # Chánh Hưng. Khi có GOONG_API_KEY (số nhà) → kỳ vọng đổi thành Phường Chánh Hưng.
     ("4/13a chánh hưng, phường 12, quận 8, hồ chí minh",     "Phường Phú Định",   "P12 data-correct + hint Chánh Hưng (Goong sẽ nâng cấp)"),
