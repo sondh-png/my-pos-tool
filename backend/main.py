@@ -2669,12 +2669,15 @@ async def api_address_resolve(q: str, province: Optional[str] = None, live: bool
                 item['candidates'].append({'new': lc, 'dist': '', 'prov': pcL, 'source': 'live'})
             item['confident'] = False
 
-    # Địa chỉ có ĐƯỜNG/số nhà không? Không có thì geocode vô nghĩa (chỉ ra
-    # điểm giữa quận) → BỎ QUA geo để khỏi sinh gợi ý rác.
+    # Địa chỉ có ĐƯỜNG/số nhà HAY địa danh cấp thôn (thôn/xóm/ấp/khu/tổ/tiểu khu)
+    # không? Có thì geocode được (VietMap trả xã cũ) → bật geo. Chỉ 'Phường X, Tỉnh'
+    # trơn (admin) thì bỏ qua geo (điểm giữa quận, vô nghĩa).
     _seg0 = _n((q or '').split(',')[0])
     _admin0 = _seg0.startswith(('phuong ', 'xa ', 'quan ', 'huyen ', 'thi tran ',
                                 'thi xa ', 'tinh ', 'tp ', 'thanh pho '))
-    q_has_street = (not _admin0) and bool(_re.search(r'\d|duong|hem|kiet|so ', _seg0))
+    _locus = bool(_re.search(r'\b(thon|xom|ap|khu|to dan pho|tieu khu|khu pho|to |doi )',
+                             _n(q or '')))
+    q_has_street = ((not _admin0) and bool(_re.search(r'\d|duong|hem|kiet|so ', _seg0))) or _locus
 
     # GEO disambiguation: khi còn 2-6 ứng viên → geocode địa chỉ (OSM) rồi
     # tra tọa độ vào ranh giới phường (polygon từ sapnhap.bando.com.vn).
